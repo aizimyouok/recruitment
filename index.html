@@ -291,9 +291,9 @@
             );
         };
 
-        // --- [수정] 메인 앱 (모바일 사이드바 상태 추가) ---
+        // --- [수정] 메인 앱 (Firebase 설정 하드코딩) ---
         const App = () => {
-            const [isConfigured, setIsConfigured] = useState(false);
+            // [삭제] isConfigured 상태 제거
             const [user, setUser] = useState(null); 
             const [authLoading, setAuthLoading] = useState(true); 
             
@@ -304,36 +304,43 @@
             const [goals, setGoals] = useState([]);
             const [loading, setLoading] = useState(true);
 
-            // [신규] 모바일 사이드바 상태
             const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
             useEffect(() => {
-                const savedConfig = localStorage.getItem('firebaseConfig');
-                if (savedConfig) {
-                    const config = JSON.parse(savedConfig);
-                    const success = initFirebase(config);
-                    if (success) {
-                        setIsConfigured(true); 
-                        
-                        const unsubscribe = auth.onAuthStateChanged(firebaseUser => {
-                            if (firebaseUser) {
-                                setUser(firebaseUser);
-                                loadData(); // 로그인 되면 데이터 로드
-                            } else {
-                                setUser(null);
-                            }
-                            setAuthLoading(false);
-                        });
-                        return () => unsubscribe(); // 클린업
-                        
-                    } else {
+                // --- [신규] Firebase 설정 직접 입력 ---
+                const firebaseConfig = {
+                  apiKey: "AIzaSyAObneOsBpf4up7PRQLx6KUM_ixvuZqcUQ"
+                  authDomain: "recruitment-system-8f83c.firebaseapp.com"
+                  projectId: "recruitment-system-8f83c"
+                  storageBucket: "recruitment-system-8f83c.firebasestorage.app"
+                  messagingSenderId: "627405471475"
+                  appId: "1:627405471475:web:8bbbf4d4b6302671190186"
+                };
+                
+                const success = initFirebase(firebaseConfig); // <-- 직접 설정값 전달
+
+                if (success) {
+                    // [삭제] isConfigured 관련 로직 제거
+                    
+                    const unsubscribe = auth.onAuthStateChanged(firebaseUser => {
+                        if (firebaseUser) {
+                            setUser(firebaseUser);
+                            loadData(); 
+                        } else {
+                            setUser(null);
+                        }
                         setAuthLoading(false);
-                        setLoading(false);
-                    }
+                    });
+                    return () => unsubscribe(); 
+                    
                 } else {
+                    // Firebase 초기화 실패 시 처리 (예: 에러 메시지 표시)
+                    console.error("Firebase 초기화 실패!");
+                    alert("Firebase 초기화에 실패했습니다. 코드를 확인해주세요.");
                     setAuthLoading(false);
                     setLoading(false);
                 }
+                // [삭제] localStorage 확인 로직 제거
             }, []);
             
             const handleLogin = () => {
@@ -341,6 +348,7 @@
             }
 
             const loadData = async () => {
+                // ... (loadData 함수 내용은 동일)
                 try {
                     setLoading(true); 
                     const jobsSnapshot = await db.collection('jobs').get();
@@ -366,18 +374,7 @@
                 }
             };
 
-            if (!isConfigured) {
-                return <FirebaseSetup onComplete={() => {
-                     setIsConfigured(true); 
-                     setAuthLoading(true);
-                     const unsubscribe = auth.onAuthStateChanged(firebaseUser => {
-                        setUser(firebaseUser);
-                        if (firebaseUser) loadData();
-                        setAuthLoading(false);
-                     });
-                     unsubscribe();
-                }} />;
-            }
+            // [삭제] isConfigured 관련 조건부 렌더링 제거
             
             if (authLoading) {
                  return (
@@ -406,7 +403,6 @@
             }
 
             return (
-                // [수정] flex-row -> flex-col md:flex-row
                 <div className="flex flex-col md:flex-row h-screen bg-gray-50">
                     <Sidebar 
                         currentPage={currentPage} 
@@ -416,7 +412,6 @@
                         setIsSidebarOpen={setIsSidebarOpen}
                     />
                     <div className="flex-1 overflow-auto">
-                        {/* [신규] 모바일 햄버거 버튼 */}
                         <div className="sticky top-0 bg-white shadow-sm p-4 z-10 md:hidden flex justify-between items-center">
                             <h1 className="text-lg font-bold text-gray-800">
                                 { currentPage.charAt(0).toUpperCase() + currentPage.slice(1) }
@@ -2398,3 +2393,4 @@
     </script>
 </body>
 </html>
+
