@@ -27,9 +27,17 @@
         .modal-exit { opacity: 1; transform: scale(1); }
         .modal-exit-active { opacity: 0; transform: scale(0.95); transition: all 200ms ease-in; }
 
-        /* [신규] 사이드바 트랜지션 */
+        /* 사이드바 트랜지션 */
         .sidebar {
             transition: transform 0.3s ease-in-out;
+        }
+        /* 테이블 셀 줄바꿈 방지 */
+        .table-cell-nowrap {
+            white-space: nowrap;
+        }
+        /* 지원자 관리 필터 너비 */
+        .filter-select {
+            min-width: 120px;
         }
     </style>
 </head>
@@ -37,18 +45,18 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo, useRef } = React;
+        const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
         // Firebase 초기화
         let db = null;
-        let auth = null; 
+        let auth = null;
         const initFirebase = (config) => {
             try {
                 if (!firebase.apps.length) {
                     firebase.initializeApp(config);
                 }
                 db = firebase.firestore();
-                auth = firebase.auth(); 
+                auth = firebase.auth();
                 return true;
             } catch (error) {
                 console.error("Firebase 초기화 오류:", error);
@@ -56,7 +64,7 @@
             }
         };
 
-        // --- [수정] Icon 컴포넌트 (menu 아이콘 추가) ---
+        // --- 아이콘 컴포넌트 ---
         const Icon = ({ name, size = 24, className = "" }) => {
             const icons = {
                 'layout-dashboard': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>',
@@ -78,11 +86,13 @@
                 'log-out': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
                 'dollar-sign': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
                 'google': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.222,0-9.641-3.317-11.28-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571l6.19,5.238C42.022,36.217,44,30.561,44,24C44,22.659,43.862,21.35,43.611,20.083z"/></svg>',
-                'menu': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>'
+                'menu': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>',
+                'user-cog': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><circle cx="19" cy="11.5" r="2.5"/><path d="M19 8v1.5"/><path d="M19 13.5V15"/><path d="m21.6 10-1.1 1.1"/><path d="m17.5 12.5-1.1 1.1"/><path d="m21.6 13-1.1-1.1"/><path d="m17.5 10.5-1.1-1.1"/></svg>',
+                'filter': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>'
             };
-            
+
             return (
-                <span 
+                <span
                     className={`icon ${className}`}
                     style={{ width: size, height: size }}
                     dangerouslySetInnerHTML={{ __html: icons[name] || icons['briefcase'] }}
@@ -121,130 +131,7 @@
             return <canvas ref={canvasRef} />;
         };
 
-        // Firebase 설정 화면
-        const FirebaseSetup = ({ onComplete }) => {
-            const [config, setConfig] = useState({
-                apiKey: '',
-                authDomain: '',
-                projectId: '',
-                storageBucket: '',
-                messagingSenderId: '',
-                appId: ''
-            });
-            const [error, setError] = useState('');
-
-            const handleSubmit = (e) => {
-                e.preventDefault();
-                const success = initFirebase(config);
-                if (success) {
-                    localStorage.setItem('firebaseConfig', JSON.stringify(config));
-                    onComplete();
-                } else {
-                    setError('Firebase 초기화에 실패했습니다. 설정을 확인해주세요.');
-                }
-            };
-
-            return (
-                <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full">
-                        <div className="text-center mb-8">
-                            <h1 className="text-3xl font-bold text-gray-800 mb-2">채용 현황 관리 시스템</h1>
-                            <p className="text-gray-600">Firebase 설정이 필요합니다</p>
-                        </div>
-
-                        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
-                            <h3 className="font-semibold text-blue-900 mb-2">🔧 Firebase 프로젝트 생성 방법</h3>
-                            <ol className="text-sm text-blue-800 space-y-1 ml-4">
-                                <li>1. <a href="https://console.firebase.google.com" target="_blank" className="underline">Firebase Console</a> 접속</li>
-                                <li>2. "프로젝트 추가" 클릭</li>
-                                <li>3. Firestore Database 생성 (테스트 모드)</li>
-                                <li>4. [중요] Authentication &gt; Sign-in method &gt; **'Google' 공급업체 활성화** (지원 이메일 설정)</li>
-                                <li>5. 프로젝트 설정(&#9881;) &gt; 내 앱 &gt; 웹 앱(&lt;/&gt;) 추가</li>
-                                <li>6. '앱 등록' 후 표시되는 `firebaseConfig` 정보를 아래에 입력</li>
-                            </ol>
-                        </div>
-
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            {/* ... (설정 폼 input들은 동일) ... */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">API Key</label>
-                                <input
-                                    type="text"
-                                    value={config.apiKey}
-                                    onChange={(e) => setConfig({...config, apiKey: e.target.value})}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Auth Domain</label>
-                                <input
-                                    type="text"
-                                    value={config.authDomain}
-                                    onChange={(e) => setConfig({...config, authDomain: e.target.value})}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Project ID</label>
-                                <input
-                                    type="text"
-                                    value={config.projectId}
-                                    onChange={(e) => setConfig({...config, projectId: e.target.value})}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Storage Bucket</label>
-                                <input
-                                    type="text"
-                                    value={config.storageBucket}
-                                    onChange={(e) => setConfig({...config, storageBucket: e.target.value})}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Messaging Sender ID</label>
-                                <input
-                                    type="text"
-                                    value={config.messagingSenderId}
-                                    onChange={(e) => setConfig({...config, messagingSenderId: e.target.value})}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">App ID</label>
-                                <input
-                                    type="text"
-                                    value={config.appId}
-                                    onChange={(e) => setConfig({...config, appId: e.target.value})}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    required
-                                />
-                            </div>
-                            {error && (
-                                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-                                    {error}
-                                </div>
-                            )}
-
-                            <button
-                                type="submit"
-                                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg"
-                            >
-                                시작하기
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            );
-        };
-        
-        // --- 로그인 컴포넌트 (Google 로그인 버튼) (이전과 동일) ---
+        // 로그인 컴포넌트 (Google 로그인 버튼)
         const Login = ({ onLogin }) => {
             const [error, setError] = useState('');
             const [loading, setLoading] = useState(false);
@@ -255,7 +142,7 @@
                 try {
                     const provider = new firebase.auth.GoogleAuthProvider();
                     await auth.signInWithPopup(provider);
-                    onLogin(); // 성공 시 App 컴포넌트로 알림
+                    onLogin();
                 } catch (err) {
                     setError('로그인 실패: ' + err.message);
                 } finally {
@@ -269,7 +156,7 @@
                         <h1 className="text-3xl font-bold text-gray-800 mb-8">
                             채용 현황 관리 시스템
                         </h1>
-                        
+
                         {error && (
                             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">
                                 {error}
@@ -291,15 +178,15 @@
             );
         };
 
-        // --- [수정] 메인 앱 (Firebase 설정 하드코딩) ---
+        // --- 메인 앱 ---
         const App = () => {
-            // [삭제] isConfigured 상태 제거
-            const [user, setUser] = useState(null); 
-            const [authLoading, setAuthLoading] = useState(true); 
-            
+            const [user, setUser] = useState(null);
+            const [authLoading, setAuthLoading] = useState(true);
+
             const [currentPage, setCurrentPage] = useState('dashboard');
             const [jobs, setJobs] = useState([]);
-            const [dailyRecords, setDailyRecords] = useState([]);
+            const [dailyRecords, setDailyRecords] = useState([]); // 조회수 기록용
+            const [applicants, setApplicants] = useState([]); // 지원자 데이터
             const [siteSettings, setSiteSettings] = useState([]);
             const [goals, setGoals] = useState([]);
             const [loading, setLoading] = useState(true);
@@ -307,8 +194,8 @@
             const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
             useEffect(() => {
-                // --- [신규] Firebase 설정 직접 입력 ---
-                const firebaseConfig = {
+                // --- Firebase 설정 직접 입력 ---
+                 const firebaseConfig = {
                   apiKey: "AIzaSyAObneOsBpf4up7PRQLx6KUM_ixvuZqcUQ",
                   authDomain: "recruitment-system-8f83c.firebaseapp.com",
                   projectId: "recruitment-system-8f83c",
@@ -316,66 +203,66 @@
                   messagingSenderId: "627405471475",
                   appId: "1:627405471475:web:8bbbf4d4b6302671190186"
                 };
-                
-                const success = initFirebase(firebaseConfig); // <-- 직접 설정값 전달
+
+                const success = initFirebase(firebaseConfig);
 
                 if (success) {
-                    // [삭제] isConfigured 관련 로직 제거
-                    
                     const unsubscribe = auth.onAuthStateChanged(firebaseUser => {
                         if (firebaseUser) {
                             setUser(firebaseUser);
-                            loadData(); 
+                            loadData(); // 로그인 시 데이터 로드
                         } else {
                             setUser(null);
+                            // 로그아웃 시 데이터 초기화
+                            setJobs([]);
+                            setDailyRecords([]);
+                            setApplicants([]);
+                            setSiteSettings([]);
+                            setGoals([]);
                         }
                         setAuthLoading(false);
                     });
-                    return () => unsubscribe(); 
-                    
+                    return () => unsubscribe();
                 } else {
-                    // Firebase 초기화 실패 시 처리 (예: 에러 메시지 표시)
                     console.error("Firebase 초기화 실패!");
                     alert("Firebase 초기화에 실패했습니다. 코드를 확인해주세요.");
                     setAuthLoading(false);
                     setLoading(false);
                 }
-                // [삭제] localStorage 확인 로직 제거
             }, []);
-            
+
             const handleLogin = () => {
-                 setAuthLoading(true); 
+                 setAuthLoading(true);
             }
 
-            const loadData = async () => {
-                // ... (loadData 함수 내용은 동일)
+            // 데이터 로드 함수
+            const loadData = useCallback(async () => {
+                if (!auth.currentUser) return;
                 try {
-                    setLoading(true); 
-                    const jobsSnapshot = await db.collection('jobs').get();
-                    const jobsData = jobsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    setJobs(jobsData);
+                    setLoading(true);
+                    const [jobsSnapshot, recordsSnapshot, applicantsSnapshot, settingsSnapshot, goalsSnapshot] = await Promise.all([
+                        db.collection('jobs').get(),
+                        db.collection('dailyRecords').get(),
+                        db.collection('applicants').orderBy('appliedDate', 'desc').get(),
+                        db.collection('siteSettings').get(),
+                        db.collection('goals').get()
+                    ]);
 
-                    const recordsSnapshot = await db.collection('dailyRecords').get();
-                    const recordsData = recordsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    setDailyRecords(recordsData);
+                    setJobs(jobsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    setDailyRecords(recordsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    setApplicants(applicantsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    setSiteSettings(settingsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    setGoals(goalsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-                    const settingsSnapshot = await db.collection('siteSettings').get();
-                    const settingsData = settingsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    setSiteSettings(settingsData);
-
-                    const goalsSnapshot = await db.collection('goals').get();
-                    const goalsData = goalsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    setGoals(goalsData);
-
-                    setLoading(false);
                 } catch (error) {
                     console.error("데이터 로드 오류:", error);
-                    setLoading(false);
+                    setLoading(false); // 오류 시 로딩 해제
+                } finally {
+                    setLoading(false); // 성공/실패 무관 로딩 해제
                 }
-            };
+            }, []);
 
-            // [삭제] isConfigured 관련 조건부 렌더링 제거
-            
+
             if (authLoading) {
                  return (
                     <div className="min-h-screen flex items-center justify-center">
@@ -384,16 +271,17 @@
                             <p className="text-gray-600">인증 확인 중...</p>
                         </div>
                     </div>
-                );
+                 );
             }
-            
+
             if (!user) {
                 return <Login onLogin={handleLogin} />;
             }
 
-            if (loading) {
-                return (
-                    <div className="min-h-screen flex items-center justify-center">
+            // 초기 로딩 시 또는 데이터가 없을 때 로딩 표시
+            if (loading && !jobs.length && !applicants.length) {
+                 return (
+                     <div className="min-h-screen flex items-center justify-center">
                         <div className="text-center">
                             <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
                             <p className="text-gray-600">데이터를 불러오는 중...</p>
@@ -403,48 +291,54 @@
             }
 
             return (
-                <div className="flex flex-col md:flex-row h-screen bg-gray-50">
-                    <Sidebar 
-                        currentPage={currentPage} 
-                        setCurrentPage={setCurrentPage} 
+                <div className="flex flex-col md:flex-row h-screen bg-gray-50 relative">
+                    <Sidebar
+                        currentPage={currentPage}
+                        setCurrentPage={setCurrentPage}
                         user={user}
                         isSidebarOpen={isSidebarOpen}
                         setIsSidebarOpen={setIsSidebarOpen}
                     />
                     <div className="flex-1 overflow-auto">
+                        {/* 모바일 헤더 */}
                         <div className="sticky top-0 bg-white shadow-sm p-4 z-10 md:hidden flex justify-between items-center">
                             <h1 className="text-lg font-bold text-gray-800">
-                                { currentPage.charAt(0).toUpperCase() + currentPage.slice(1) }
+                                { currentPage === 'applicants' ? '지원자 관리' :
+                                  currentPage === 'daily' ? '조회수 업데이트' :
+                                  currentPage.charAt(0).toUpperCase() + currentPage.slice(1) }
                             </h1>
                             <button onClick={() => setIsSidebarOpen(true)} className="text-gray-600">
                                 <Icon name="menu" size={28} />
                             </button>
                         </div>
 
-                        {currentPage === 'dashboard' && <Dashboard jobs={jobs} dailyRecords={dailyRecords} siteSettings={siteSettings} goals={goals} />}
-                        {currentPage === 'jobs' && <JobManagement jobs={jobs} dailyRecords={dailyRecords} loadData={loadData} />}
+                        {/* 페이지 렌더링 */}
+                        {currentPage === 'dashboard' && <Dashboard jobs={jobs} dailyRecords={dailyRecords} applicants={applicants} siteSettings={siteSettings} goals={goals} />}
+                        {currentPage === 'jobs' && <JobManagement jobs={jobs} applicants={applicants} loadData={loadData} />}
+                        {currentPage === 'applicants' && <ApplicantManagement applicants={applicants} jobs={jobs} loadData={loadData} />}
                         {currentPage === 'daily' && <DailyUpdate jobs={jobs} dailyRecords={dailyRecords} loadData={loadData} />}
-                        {currentPage === 'compare' && <SiteComparison jobs={jobs} dailyRecords={dailyRecords} />}
-                        {currentPage === 'efficiency' && <EfficiencyAnalysis jobs={jobs} dailyRecords={dailyRecords} siteSettings={siteSettings} />}
-                        {currentPage === 'trends' && <TrendAnalysis jobs={jobs} dailyRecords={dailyRecords} />}
+                        {currentPage === 'compare' && <SiteComparison jobs={jobs} applicants={applicants} dailyRecords={dailyRecords} />} {/* dailyRecords 추가 */}
+                        {currentPage === 'efficiency' && <EfficiencyAnalysis jobs={jobs} applicants={applicants} siteSettings={siteSettings} />}
+                        {currentPage === 'trends' && <TrendAnalysis jobs={jobs} dailyRecords={dailyRecords} applicants={applicants} />}
                         {currentPage === 'settings' && <Settings siteSettings={siteSettings} goals={goals} loadData={loadData} />}
                     </div>
                 </div>
             );
         };
 
-        // --- [수정] 사이드바 (모바일 반응형 로직 추가) ---
+        // --- 사이드바 ---
         const Sidebar = ({ currentPage, setCurrentPage, user, isSidebarOpen, setIsSidebarOpen }) => {
             const menuItems = [
                 { id: 'dashboard', name: '대시보드', icon: 'layout-dashboard' },
                 { id: 'jobs', name: '공고 관리', icon: 'briefcase' },
-                { id: 'daily', name: '일일 업데이트', icon: 'plus-circle' },
+                { id: 'applicants', name: '지원자 관리', icon: 'user-cog' },
+                { id: 'daily', name: '조회수 업데이트', icon: 'plus-circle' },
                 { id: 'compare', name: '사이트 비교', icon: 'git-compare' },
                 { id: 'efficiency', name: '효율성 분석', icon: 'trending-up' },
                 { id: 'trends', name: '트렌드 분석', icon: 'line-chart' },
                 { id: 'settings', name: '설정', icon: 'settings' }
             ];
-            
+
             const handleLogout = () => {
                 if (confirm('로그아웃 하시겠습니까?')) {
                     auth.signOut();
@@ -453,38 +347,34 @@
 
             const selectMenu = (id) => {
                 setCurrentPage(id);
-                setIsSidebarOpen(false); // 메뉴 선택 시 모바일 사이드바 닫기
+                setIsSidebarOpen(false);
             };
 
             return (
                 <>
-                    {/* [신규] 모바일 오버레이 */}
                     {isSidebarOpen && (
-                        <div 
+                        <div
                             className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"
                             onClick={() => setIsSidebarOpen(false)}
                         ></div>
                     )}
-
-                    {/* [수정] 반응형 클래스 추가 */}
-                    <div 
-                        className={`sidebar w-64 bg-gradient-to-b from-gray-900 to-gray-800 text-white p-4 shadow-2xl flex flex-col h-full 
-                                    fixed inset-y-0 left-0 z-30
-                                    md:relative md:translate-x-0
+                    <div
+                        className={`sidebar w-64 bg-gradient-to-b from-gray-900 to-gray-800 text-white p-4 shadow-2xl flex flex-col h-full
+                                    fixed inset-y-0 left-0 z-30 transform md:relative md:translate-x-0
                                     ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
                     >
                         <div className="mb-8 text-center">
                             <h1 className="text-xl font-bold">채용 현황 관리</h1>
                             <p className="text-xs text-gray-400 mt-1">Recruitment Dashboard</p>
                         </div>
-                        <nav className="space-y-2 flex-1">
+                        <nav className="space-y-2 flex-1 overflow-y-auto">
                             {menuItems.map(item => (
                                 <button
                                     key={item.id}
-                                    onClick={() => selectMenu(item.id)} // [수정]
+                                    onClick={() => selectMenu(item.id)}
                                     className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
-                                        currentPage === item.id 
-                                            ? 'bg-blue-600 shadow-lg' 
+                                        currentPage === item.id
+                                            ? 'bg-blue-600 shadow-lg'
                                             : 'hover:bg-gray-700'
                                     }`}
                                 >
@@ -493,9 +383,9 @@
                                 </button>
                             ))}
                         </nav>
-                        
+
                         <div className="mt-auto border-t border-gray-700 pt-4">
-                            <div className="flex items-center space-x-3 mb-2 px-2">
+                           <div className="flex items-center space-x-3 mb-2 px-2">
                                 {user.photoURL ? (
                                     <img src={user.photoURL} alt="Profile" className="w-8 h-8 rounded-full" />
                                 ) : (
@@ -507,7 +397,7 @@
                                     {user.displayName || user.email}
                                 </span>
                             </div>
-                            <button
+                             <button
                                 onClick={handleLogout}
                                 className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all hover:bg-red-600"
                             >
@@ -520,7 +410,7 @@
             );
         };
 
-        // 대시보드 위젯 설정 모달 (이전과 동일)
+        // --- 대시보드 위젯 설정 모달 ---
         const DashboardSettingsModal = ({ settings, onSave, onClose }) => {
             const [currentSettings, setCurrentSettings] = useState(settings);
 
@@ -541,7 +431,7 @@
                                 <Icon name="x" size={20} />
                             </button>
                         </div>
-                        
+
                         <div className="space-y-4">
                             <label className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                                 <span className="font-medium text-gray-700">KPI 카드</span>
@@ -585,8 +475,8 @@
             );
         };
 
-        // --- [수정] 대시보드 (반응형 그리드) ---
-        const Dashboard = ({ jobs, dailyRecords, siteSettings, goals }) => {
+        // --- 대시보드 ---
+        const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
             const [dateRangeType, setDateRangeType] = useState('all');
             const [customRange, setCustomRange] = useState({ start: '', end: '' });
             const [siteFilter, setSiteFilter] = useState('all');
@@ -596,7 +486,6 @@
                 return saved ? JSON.parse(saved) : { kpi: true, conversion: true, siteSummary: true };
             });
 
-            // (이하 로직은 이전과 동일)
             const handleSaveWidgetSettings = (newSettings) => {
                 setWidgetSettings(newSettings);
                 localStorage.setItem('dashboardWidgetSettings', JSON.stringify(newSettings));
@@ -606,97 +495,79 @@
             const dateRange = useMemo(() => {
                 const today = new Date();
                 const todayStr = today.toISOString().split('T')[0];
-                
                 if (dateRangeType === 'week') {
-                    const weekAgo = new Date(today.setDate(today.getDate() - 7));
+                    const weekAgo = new Date(new Date().setDate(today.getDate() - 7));
                     return { start: weekAgo.toISOString().split('T')[0], end: todayStr };
                 }
                 if (dateRangeType === 'month') {
-                    const monthAgo = new Date(today.setMonth(today.getMonth() - 1));
+                    const monthAgo = new Date(new Date().setMonth(today.getMonth() - 1));
                     return { start: monthAgo.toISOString().split('T')[0], end: todayStr };
                 }
                 if (dateRangeType === 'custom' && customRange.start && customRange.end) {
                     return customRange;
                 }
-                return { start: null, end: todayStr }; 
+                return { start: null, end: todayStr };
             }, [dateRangeType, customRange]);
 
             const filteredData = useMemo(() => {
-                const filteredJobs = siteFilter === 'all'
-                    ? jobs
-                    : jobs.filter(j => j.site === siteFilter);
-                
+                const filteredJobs = siteFilter === 'all' ? jobs : jobs.filter(j => j.site === siteFilter);
                 const jobIds = filteredJobs.map(j => j.id);
 
                 const filteredRecords = dailyRecords.filter(r => {
                     const inSite = jobIds.includes(r.jobId);
                     if (!inSite) return false;
-
-                    if (dateRange.start && dateRange.end) {
-                        if(dateRangeType !== 'all') {
-                            return r.date >= dateRange.start && r.date <= dateRange.end;
-                        }
+                    if (dateRange.start && dateRange.end && dateRangeType !== 'all') {
+                        return r.date >= dateRange.start && r.date <= dateRange.end;
                     }
                     return true;
                 });
 
-                return { filteredJobs, filteredRecords };
-            }, [jobs, dailyRecords, siteFilter, dateRange, dateRangeType]);
+                const filteredApplicants = applicants.filter(a => {
+                    const inSite = jobIds.includes(a.appliedJobId);
+                    if (!inSite) return false;
+                    if (dateRange.start && dateRange.end && dateRangeType !== 'all') {
+                        // 지원일 기준 필터링
+                        return a.appliedDate >= dateRange.start && a.appliedDate <= dateRange.end;
+                    }
+                    return true;
+                });
+
+                return { filteredJobs, filteredRecords, filteredApplicants };
+            }, [jobs, dailyRecords, applicants, siteFilter, dateRange, dateRangeType]);
 
             const stats = useMemo(() => {
                 const activeJobs = filteredData.filteredJobs.filter(j => j.status === '진행중');
-                const totals = {
-                    views: 0, applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0
-                };
-
-                filteredData.filteredRecords.forEach(record => {
-                    totals.views += record.viewsIncrease || 0;
-                    totals.applications += record.applicationsIncrease || 0;
-                    totals.contacts += record.contactsIncrease || 0;
-                    totals.interviews += record.interviewsIncrease || 0;
-                    totals.offers += record.offersIncrease || 0;
-                    totals.hires += record.hiresIncrease || 0;
+                const totalViews = filteredData.filteredRecords.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
+                const totals = { applications: 0, interviews: 0, offers: 0, hires: 0 };
+                filteredData.filteredApplicants.forEach(a => {
+                    totals.applications++;
+                    if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++; // 면접 이후 단계는 면접 집계에 포함 (정의에 따라 변경 가능)
+                    if (['합격', '입사'].includes(a.status)) totals.offers++;
+                    if (a.status === '입사') totals.hires++;
                 });
 
-                const conversionRate = totals.applications > 0 
-                    ? ((totals.hires / totals.applications) * 100).toFixed(1)
-                    : 0;
+                const conversionRate = totals.applications > 0 ? ((totals.hires / totals.applications) * 100).toFixed(1) : 0;
 
                 const targetYearMonth = dateRange.end.substring(0, 7);
                 const currentGoal = goals.find(g => g.yearMonth === targetYearMonth);
-                
                 let targetHires = 0;
                 if (currentGoal) {
-                    if (siteFilter === 'all') {
-                        targetHires = currentGoal.targetHires || 0;
-                    } else if (siteFilter === '사람인') {
-                        targetHires = currentGoal.targetSaramin || 0;
-                    } else if (siteFilter === '잡코리아') {
-                        targetHires = currentGoal.targetJobkorea || 0;
-                    } else if (siteFilter === '인크루트') {
-                        targetHires = currentGoal.targetIncruit || 0;
-                    }
+                    if (siteFilter === 'all') targetHires = currentGoal.targetHires || 0;
+                    else if (siteFilter === '사람인') targetHires = currentGoal.targetSaramin || 0;
+                    else if (siteFilter === '잡코리아') targetHires = currentGoal.targetJobkorea || 0;
+                    else if (siteFilter === '인크루트') targetHires = currentGoal.targetIncruit || 0;
                 }
-                const achievementRate = targetHires > 0 
-                    ? ((totals.hires / targetHires) * 100).toFixed(0)
-                    : 0;
+                const achievementRate = targetHires > 0 ? ((totals.hires / targetHires) * 100).toFixed(0) : 0;
 
                 let totalCost = 0;
-                const filteredSettings = siteFilter === 'all'
-                    ? siteSettings
-                    : siteSettings.filter(s => s.site === siteFilter);
-                
-                filteredSettings.forEach(s => {
-                    totalCost += s.monthlyCost || 0;
-                });
-                
-                const costPerHire = totals.hires > 0
-                    ? (totalCost / totals.hires).toLocaleString(undefined, { maximumFractionDigits: 0 })
-                    : 0;
+                const filteredSettings = siteFilter === 'all' ? siteSettings : siteSettings.filter(s => s.site === siteFilter);
+                filteredSettings.forEach(s => { totalCost += s.monthlyCost || 0; });
+                const costPerHire = totals.hires > 0 ? (totalCost / totals.hires).toLocaleString(undefined, { maximumFractionDigits: 0 }) : 0;
 
-                return { 
-                    activeJobs: activeJobs.length, 
-                    ...totals, 
+                return {
+                    activeJobs: activeJobs.length,
+                    views: totalViews,
+                    ...totals,
                     conversionRate,
                     targetHires,
                     achievementRate,
@@ -705,17 +576,11 @@
             }, [filteredData, siteFilter, dateRange, goals, siteSettings]);
 
             return (
-                // [수정] 모바일 패딩 p-4
                 <div className="p-4 md:p-8">
                     {showSettingsModal && (
-                        <DashboardSettingsModal
-                            settings={widgetSettings}
-                            onSave={handleSaveWidgetSettings}
-                            onClose={() => setShowSettingsModal(false)}
-                        />
+                        <DashboardSettingsModal settings={widgetSettings} onSave={handleSaveWidgetSettings} onClose={() => setShowSettingsModal(false)} />
                     )}
 
-                    {/* [수정] 모바일 숨김 */}
                     <div className="hidden md:flex justify-between items-start mb-8">
                         <div>
                             <h2 className="text-3xl font-bold text-gray-800">대시보드</h2>
@@ -724,55 +589,29 @@
                                 {dateRangeType !== 'all' ? ` | ${dateRange.start} ~ ${dateRange.end}` : ' | 전체 기간'}
                             </p>
                         </div>
-                        <button
-                            onClick={() => setShowSettingsModal(true)}
-                            className="text-gray-500 hover:text-gray-800 p-2 rounded-full hover:bg-gray-100"
-                        >
+                        <button onClick={() => setShowSettingsModal(true)} className="text-gray-500 hover:text-gray-800 p-2 rounded-full hover:bg-gray-100">
                             <Icon name="settings" size={24} />
                         </button>
                     </div>
 
-                    {/* --- [수정] 필터링 UI (flex-wrap 추가) --- */}
                     <div className="bg-white rounded-xl shadow-lg p-4 mb-8">
                         <div className="flex flex-wrap items-center gap-4">
                             <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
                                 {['all', 'week', 'month', 'custom'].map(type => (
-                                    <button
-                                        key={type}
-                                        onClick={() => setDateRangeType(type)}
-                                        className={`px-3 py-1 rounded-md text-sm font-medium ${
-                                            dateRangeType === type
-                                                ? 'bg-white shadow text-blue-600'
-                                                : 'text-gray-600 hover:text-gray-800'
-                                        }`}
-                                    >
+                                    <button key={type} onClick={() => setDateRangeType(type)} className={`px-3 py-1 rounded-md text-sm font-medium ${dateRangeType === type ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:text-gray-800'}`}>
                                         { {all: '전체', week: '1주', month: '1개월', custom: '기간'}[type] }
                                     </button>
                                 ))}
                             </div>
                             {dateRangeType === 'custom' && (
                                 <div className="flex items-center space-x-2">
-                                    <input
-                                        type="date"
-                                        value={customRange.start}
-                                        onChange={(e) => setCustomRange(p => ({...p, start: e.target.value}))}
-                                        className="px-3 py-1 border border-gray-300 rounded-lg text-sm"
-                                    />
+                                    <input type="date" value={customRange.start} onChange={(e) => setCustomRange(p => ({...p, start: e.target.value}))} className="input-style px-3 py-1 text-sm" />
                                     <span>~</span>
-                                    <input
-                                        type="date"
-                                        value={customRange.end}
-                                        onChange={(e) => setCustomRange(p => ({...p, end: e.target.value}))}
-                                        className="px-3 py-1 border border-gray-300 rounded-lg text-sm"
-                                    />
+                                    <input type="date" value={customRange.end} onChange={(e) => setCustomRange(p => ({...p, end: e.target.value}))} className="input-style px-3 py-1 text-sm" />
                                 </div>
                             )}
                             <div>
-                                <select
-                                    value={siteFilter}
-                                    onChange={(e) => setSiteFilter(e.target.value)}
-                                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium"
-                                >
+                                <select value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)} className="input-style px-3 py-2 text-sm font-medium bg-white">
                                     <option value="all">전체 사이트</option>
                                     <option value="사람인">사람인</option>
                                     <option value="잡코리아">잡코리아</option>
@@ -781,32 +620,19 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     {widgetSettings.kpi && (
-                        // [수정] 반응형 그리드
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                             <KPICard title="진행중인 공고" value={stats.activeJobs} icon="briefcase" color="blue" />
                             <KPICard title="총 지원자" value={stats.applications} icon="users" color="green" />
-                            <KPICard 
-                                title="1인당 채용 비용 (월 기준)" 
-                                value={stats.costPerHire > 0 ? `${stats.costPerHire}원` : '-'} 
-                                icon="dollar-sign" 
-                                color="purple" 
-                            />
-                            <KPICard 
-                                title="입사자" 
-                                value={`${stats.hires} / ${stats.targetHires}`} 
-                                icon="user-plus" 
-                                color="orange" 
-                                subText={stats.targetHires > 0 ? `달성률 ${stats.achievementRate}%` : '목표 미설정'}
-                            />
+                            <KPICard title="1인당 채용 비용 (월 기준)" value={stats.costPerHire > 0 ? `${stats.costPerHire}원` : '-'} icon="dollar-sign" color="purple" />
+                            <KPICard title="입사자" value={`${stats.hires} / ${stats.targetHires}`} icon="user-plus" color="orange" subText={stats.targetHires > 0 ? `달성률 ${stats.achievementRate}%` : '목표 미설정'}/>
                         </div>
                     )}
 
                     {widgetSettings.conversion && (
                         <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
                             <h3 className="text-xl font-semibold mb-4">전환율 분석</h3>
-                            {/* [수정] flex-wrap 추가 */}
                             <div className="flex items-center justify-around flex-wrap gap-4">
                                 <ConversionStep label="조회" value={stats.views} />
                                 <Icon name="chevron-right" className="text-gray-400" />
@@ -828,14 +654,14 @@
                     {widgetSettings.siteSummary && (
                         <div className="bg-white rounded-xl shadow-lg p-6">
                             <h3 className="text-xl font-semibold mb-4">사이트별 현황</h3>
-                            <SiteSummary jobs={jobs} dailyRecords={dailyRecords} filter={siteFilter === 'all' ? null : siteFilter} />
+                            <SiteSummary jobs={jobs} dailyRecords={dailyRecords} applicants={applicants} filter={siteFilter === 'all' ? null : siteFilter} />
                         </div>
                     )}
                 </div>
             );
         };
-        
-        // KPICard (이전과 동일)
+
+        // KPI 카드
         const KPICard = ({ title, value, icon, color, subText }) => {
             const colorClasses = {
                 blue: 'from-blue-500 to-blue-600',
@@ -843,7 +669,6 @@
                 purple: 'from-purple-500 to-purple-600',
                 orange: 'from-orange-500 to-orange-600'
             };
-
             return (
                 <div className={`bg-gradient-to-br ${colorClasses[color]} rounded-xl shadow-lg p-6 text-white`}>
                     <div className="flex items-center justify-between mb-2">
@@ -851,14 +676,12 @@
                         <span className="text-3xl font-bold">{value}</span>
                     </div>
                     <p className="text-sm opacity-90">{title}</p>
-                    {subText && (
-                         <p className="text-sm font-bold text-right mt-1">{subText}</p>
-                    )}
+                    {subText && <p className="text-sm font-bold text-right mt-1">{subText}</p>}
                 </div>
             );
         };
 
-        // ConversionStep (이전과 동일)
+        // 전환율 단계
         const ConversionStep = ({ label, value }) => (
             <div className="text-center">
                 <div className="text-2xl font-bold text-gray-800">{value}</div>
@@ -866,110 +689,71 @@
             </div>
         );
 
-        // --- [수정] SiteSummary (반응형 그리드) ---
-        const SiteSummary = ({ jobs, dailyRecords, filter }) => {
+        // --- 사이트별 현황 ---
+        const SiteSummary = ({ jobs, dailyRecords, applicants, filter }) => {
             const allSites = ['사람인', '잡코리아', '인크루트'];
             const sites = filter ? [filter] : allSites;
 
             const siteData = sites.map(site => {
                 const siteJobs = jobs.filter(j => j.site === site);
                 const jobIds = siteJobs.map(j => j.id);
+
                 const siteRecords = dailyRecords.filter(r => jobIds.includes(r.jobId));
-                
-                const totals = {
-                    jobs: siteJobs.length,
-                    views: 0,
-                    applications: 0,
-                    contacts: 0,
-                    interviews: 0,
-                    offers: 0,
-                    hires: 0
-                };
+                const totalViews = siteRecords.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
 
-                siteRecords.forEach(record => {
-                    totals.views += record.viewsIncrease || 0;
-                    totals.applications += record.applicationsIncrease || 0;
-                    totals.contacts += record.contactsIncrease || 0;
-                    totals.interviews += record.interviewsIncrease || 0;
-                    totals.offers += record.offersIncrease || 0;
-                    totals.hires += record.hiresIncrease || 0;
+                const siteApplicants = applicants.filter(a => jobIds.includes(a.appliedJobId));
+                const totals = { jobs: siteJobs.length, views: totalViews, applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 };
+                siteApplicants.forEach(a => {
+                    totals.applications++;
+                    // contacts 필요 시 반영
+                    if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++;
+                    if (['합격', '입사'].includes(a.status)) totals.offers++;
+                    if (a.status === '입사') totals.hires++;
                 });
-
                 return { site, ...totals };
             });
 
             return (
-                // [수정] 반응형 그리드
                 <div className={`grid grid-cols-1 ${filter ? '' : 'md:grid-cols-3'} gap-4`}>
                     {siteData.map(data => (
                         <div key={data.site} className="border border-gray-200 rounded-lg p-4">
                             <h4 className="font-semibold text-lg mb-3">{data.site}</h4>
                             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">공고 수:</span>
-                                    <span className="font-semibold">{data.jobs}</span>
-                                </div>
-                                 <div className="flex justify-between">
-                                    <span className="text-gray-600">조회수:</span>
-                                    <span className="font-semibold">{data.views}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">지원자:</span>
-                                    <span className="font-semibold">{data.applications}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">컨택:</span>
-                                    <span className="font-semibold">{data.contacts}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">면접:</span>
-                                    <span className="font-semibold">{data.interviews}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">합격:</span>
-                                    <span className="font-semibold">{data.offers}</span>
-                                </div>
-                                <div className="flex justify-between col-span-2 border-t pt-2 mt-1">
-                                    <span className="text-gray-600 font-bold">입과:</span>
-                                    <span className="font-bold text-lg text-blue-600">{data.hires}명</span>
-                                </div>
+                                <div className="flex justify-between"><span className="text-gray-600">공고 수:</span><span className="font-semibold">{data.jobs}</span></div>
+                                <div className="flex justify-between"><span className="text-gray-600">조회수:</span><span className="font-semibold">{data.views}</span></div>
+                                <div className="flex justify-between"><span className="text-gray-600">지원자:</span><span className="font-semibold">{data.applications}</span></div>
+                                <div className="flex justify-between"><span className="text-gray-600">컨택:</span><span className="font-semibold">{data.contacts}</span></div>
+                                <div className="flex justify-between"><span className="text-gray-600">면접:</span><span className="font-semibold">{data.interviews}</span></div>
+                                <div className="flex justify-between"><span className="text-gray-600">합격:</span><span className="font-semibold">{data.offers}</span></div>
+                                <div className="flex justify-between col-span-2 border-t pt-2 mt-1"><span className="text-gray-600 font-bold">입과:</span><span className="font-bold text-lg text-blue-600">{data.hires}명</span></div>
                             </div>
                         </div>
                     ))}
                 </div>
             );
         };
-        
-        // 공고별 상세 분석 모달 (이전과 동일)
-        const JobDetailModal = ({ job, dailyRecords, onClose }) => {
+
+        // --- 공고별 상세 분석 모달 ---
+        const JobDetailModal = ({ job, applicants, onClose }) => {
             const jobStats = useMemo(() => {
-                const records = dailyRecords.filter(r => r.jobId === job.id);
-                const totals = {
-                    views: 0, applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0
-                };
-                const trend = {}; 
+                const jobApplicants = applicants.filter(a => a.appliedJobId === job.id);
+                const totals = { applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 };
+                const trend = {};
 
-                records.forEach(r => {
-                    totals.views += r.viewsIncrease || 0;
-                    totals.applications += r.applicationsIncrease || 0;
-                    totals.contacts += r.contactsIncrease || 0;
-                    totals.interviews += r.interviewsIncrease || 0;
-                    totals.offers += r.offersIncrease || 0;
-                    totals.hires += r.hiresIncrease || 0;
-                    
-                    if (r.applicationsIncrease > 0) {
-                        trend[r.date] = (trend[r.date] || 0) + r.applicationsIncrease;
-                    }
+                jobApplicants.forEach(a => {
+                    totals.applications++;
+                    // contacts 필요 시 반영
+                    if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++;
+                    if (['합격', '입사'].includes(a.status)) totals.offers++;
+                    if (a.status === '입사') totals.hires++;
+                    trend[a.appliedDate] = (trend[a.appliedDate] || 0) + 1;
                 });
-                
-                const conversionRate = totals.applications > 0 
-                    ? ((totals.hires / totals.applications) * 100).toFixed(1)
-                    : 0;
 
+                const conversionRate = totals.applications > 0 ? ((totals.hires / totals.applications) * 100).toFixed(1) : 0;
                 const sortedTrend = Object.entries(trend).sort((a, b) => a[0].localeCompare(b[0]));
-                
-                return { ...totals, conversionRate, trendData: sortedTrend };
-            }, [job, dailyRecords]);
+
+                return { ...totals, conversionRate, trendData: sortedTrend, applicantList: jobApplicants };
+            }, [job, applicants]);
 
             const chartData = {
                 labels: jobStats.trendData.map(d => d[0]),
@@ -985,22 +769,16 @@
 
             return (
                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 modal-enter-active">
-                    <div className="bg-white rounded-xl shadow-2xl p-6 md:p-8 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+                    <div className="bg-white rounded-xl shadow-2xl p-6 md:p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center mb-6">
                             <div>
                                 <h3 className="text-2xl font-bold text-gray-800">{job.title}</h3>
                                 <p className="text-gray-600">{job.site} | {job.position}</p>
                             </div>
-                            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-                                <Icon name="x" size={24} />
-                            </button>
+                            <button onClick={onClose} className="text-gray-400 hover:text-gray-600"> <Icon name="x" size={24} /> </button>
                         </div>
-                        
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                            <div className="bg-gray-50 p-4 rounded-lg text-center">
-                                <p className="text-sm text-gray-600">총 조회수</p>
-                                <p className="text-3xl font-bold text-gray-800">{jobStats.views}</p>
-                            </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
                              <div className="bg-gray-50 p-4 rounded-lg text-center">
                                 <p className="text-sm text-gray-600">총 지원자</p>
                                 <p className="text-3xl font-bold text-blue-600">{jobStats.applications}</p>
@@ -1024,16 +802,41 @@
                             </div>
                         </div>
 
-                        <div className="bg-white rounded-xl shadow-lg p-6">
+                        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
                              <h4 className="text-xl font-semibold mb-4">일별 지원자 트렌드</h4>
                              <div style={{ height: '250px' }}>
-                                <ChartComponent
-                                    type="line"
-                                    data={chartData}
-                                    options={{
-                                        scales: { y: { beginAtZero: true } }
-                                    }}
-                                />
+                                <ChartComponent type="line" data={chartData} options={{ scales: { y: { beginAtZero: true } } }} />
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-xl shadow-lg p-6">
+                            <h4 className="text-xl font-semibold mb-4">지원자 목록 ({jobStats.applicantList.length}명)</h4>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="px-4 py-2 text-left font-medium text-gray-500">이름</th>
+                                            <th className="px-4 py-2 text-left font-medium text-gray-500">성별</th>
+                                            <th className="px-4 py-2 text-left font-medium text-gray-500">연령대</th>
+                                            <th className="px-4 py-2 text-left font-medium text-gray-500">연락처</th>
+                                            <th className="px-4 py-2 text-left font-medium text-gray-500">지원일</th>
+                                            <th className="px-4 py-2 text-left font-medium text-gray-500">상태</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200">
+                                        {jobStats.applicantList.map(a => (
+                                            <tr key={a.id}>
+                                                <td className="px-4 py-2 table-cell-nowrap">{a.name}</td>
+                                                <td className="px-4 py-2 table-cell-nowrap">{a.gender}</td>
+                                                <td className="px-4 py-2 table-cell-nowrap">{a.ageGroup}</td>
+                                                <td className="px-4 py-2 table-cell-nowrap">{a.contactInfo}</td>
+                                                <td className="px-4 py-2 table-cell-nowrap">{a.appliedDate}</td>
+                                                <td className="px-4 py-2 table-cell-nowrap"> <ApplicantStatusBadge status={a.status} /> </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                                {jobStats.applicantList.length === 0 && <p className="text-center text-gray-500 py-4">이 공고의 지원자가 없습니다.</p>}
                             </div>
                         </div>
                     </div>
@@ -1041,282 +844,126 @@
             );
         };
 
-        // --- [수정] 공고 관리 (반응형 테이블) ---
-        const JobManagement = ({ jobs, dailyRecords, loadData }) => {
+
+        // --- 공고 관리 ---
+        const JobManagement = ({ jobs, applicants, loadData }) => {
             const [showForm, setShowForm] = useState(false);
             const [editingJob, setEditingJob] = useState(null);
-            const [selectedJob, setSelectedJob] = useState(null); 
-            const [formData, setFormData] = useState({
-                site: '사람인',
-                title: '',
-                position: '',
-                company: '',
-                startDate: '',
-                endDate: '',
-                status: '진행중',
-                memo: ''
-            });
+            const [selectedJob, setSelectedJob] = useState(null);
+            const [formData, setFormData] = useState({ site: '사람인', title: '', position: '', company: '', startDate: '', endDate: '', status: '진행중', memo: '' });
 
-            // (이하 폼 핸들러는 이전과 동일)
-             const handleSubmit = async (e) => {
+            const handleSubmit = async (e) => {
                 e.preventDefault();
                 try {
+                    const data = { ...formData, updatedAt: new Date().toISOString() };
                     if (editingJob) {
-                        await db.collection('jobs').doc(editingJob.id).update({
-                            ...formData,
-                            updatedAt: new Date().toISOString()
-                        });
+                        await db.collection('jobs').doc(editingJob.id).update(data);
                     } else {
-                        await db.collection('jobs').add({
-                            ...formData,
-                            createdAt: new Date().toISOString(),
-                            updatedAt: new Date().toISOString()
-                        });
+                        await db.collection('jobs').add({ ...data, createdAt: new Date().toISOString() });
                     }
+                    resetForm();
                     loadData();
-                    setShowForm(false);
-                    setEditingJob(null);
-                    setFormData({
-                        site: '사람인',
-                        title: '',
-                        position: '',
-                        company: '',
-                        startDate: '',
-                        endDate: '',
-                        status: '진행중',
-                        memo: ''
-                    });
                     alert('저장되었습니다!');
-                } catch (error) {
-                    alert('저장 실패: ' + error.message);
-                }
+                } catch (error) { alert('저장 실패: ' + error.message); }
             };
 
             const handleEdit = (e, job) => {
-                e.stopPropagation(); 
+                e.stopPropagation();
                 setEditingJob(job);
                 setFormData(job);
                 setShowForm(true);
             };
 
             const handleDelete = async (e, id) => {
-                e.stopPropagation(); 
+                e.stopPropagation();
                 if (confirm('정말 삭제하시겠습니까?')) {
                     try {
+                        // TODO: 연관된 지원자 처리 정책 필요 (예: 삭제하거나, 연결 해제)
                         await db.collection('jobs').doc(id).delete();
                         loadData();
                         alert('삭제되었습니다!');
-                    } catch (error) {
-                        alert('삭제 실패: ' + error.message);
-                    }
+                    } catch (error) { alert('삭제 실패: ' + error.message); }
                 }
             };
-
+            
+            const resetForm = () => {
+                setShowForm(false);
+                setEditingJob(null);
+                setFormData({ site: '사람인', title: '', position: '', company: '', startDate: '', endDate: '', status: '진행중', memo: '' });
+            };
 
             return (
-                // [수정] 모바일 패딩 p-4
                 <div className="p-4 md:p-8">
                     <div className="flex justify-between items-center mb-8">
                         <h2 className="text-2xl md:text-3xl font-bold text-gray-800">공고 관리</h2>
-                        <button
-                            onClick={() => setShowForm(true)}
-                            className="bg-blue-600 text-white px-4 py-2 md:px-6 md:py-3 rounded-lg flex items-center space-x-2 hover:bg-blue-700 transition-colors shadow-lg"
-                        >
-                            <Icon name="plus" size={20} />
-                            <span className="hidden md:inline">공고 추가</span>
+                        <button onClick={() => setShowForm(true)} className="btn-primary px-4 py-2 md:px-6 md:py-3 flex items-center space-x-2">
+                            <Icon name="plus" size={20} /> <span className="hidden md:inline">공고 추가</span>
                         </button>
                     </div>
 
                     {showForm && (
                         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                             <div className="bg-white rounded-xl shadow-2xl p-6 md:p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                                <h3 className="text-2xl font-bold mb-6">
-                                    {editingJob ? '공고 수정' : '공고 추가'}
-                                </h3>
+                                <h3 className="text-2xl font-bold mb-6">{editingJob ? '공고 수정' : '공고 추가'}</h3>
                                 <form onSubmit={handleSubmit} className="space-y-4">
-                                    {/* (폼 내용은 동일) */}
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">채용 사이트</label>
-                                        <select
-                                            value={formData.site}
-                                            onChange={(e) => setFormData({...formData, site: e.target.value})}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                            required
-                                        >
-                                            <option>사람인</option>
-                                            <option>잡코리아</option>
-                                            <option>인크루트</option>
-                                        </select>
+                                     <div>
+                                        <label className="label-style">채용 사이트</label>
+                                        <Select name="site" value={formData.site} onChange={e => setFormData({...formData, site: e.target.value})} required>
+                                            <option>사람인</option> <option>잡코리아</option> <option>인크루트</option>
+                                        </Select>
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">공고 제목</label>
-                                        <input
-                                            type="text"
-                                            value={formData.title}
-                                            onChange={(e) => setFormData({...formData, title: e.target.value})}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                            required
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">직무/포지션</label>
-                                        <input
-                                            type="text"
-                                            value={formData.position}
-                                            onChange={(e) => setFormData({...formData, position: e.target.value})}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                            required
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">게시 업체명</label>
-                                        <input
-                                            type="text"
-                                            value={formData.company}
-                                            onChange={(e) => setFormData({...formData, company: e.target.value})}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                            required
-                                        />
-                                    </div>
+                                    <div><label className="label-style">공고 제목</label><Input type="text" name="title" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required /></div>
+                                    <div><label className="label-style">직무/포지션</label><Input type="text" name="position" value={formData.position} onChange={e => setFormData({...formData, position: e.target.value})} required /></div>
+                                    <div><label className="label-style">게시 업체명</label><Input type="text" name="company" value={formData.company} onChange={e => setFormData({...formData, company: e.target.value})} required /></div>
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">게시 시작일</label>
-                                            <input
-                                                type="date"
-                                                value={formData.startDate}
-                                                onChange={(e) => setFormData({...formData, startDate: e.target.value})}
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                                required
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">게시 종료일</label>
-                                            <input
-                                                type="date"
-                                                value={formData.endDate}
-                                                onChange={(e) => setFormData({...formData, endDate: e.target.value})}
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                                required
-                                            />
-                                        </div>
+                                        <div><label className="label-style">게시 시작일</label><Input type="date" name="startDate" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} required /></div>
+                                        <div><label className="label-style">게시 종료일</label><Input type="date" name="endDate" value={formData.endDate} onChange={e => setFormData({...formData, endDate: e.target.value})} required /></div>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">공고 상태</label>
-                                        <select
-                                            value={formData.status}
-                                            onChange={(e) => setFormData({...formData, status: e.target.value})}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                        >
-                                            <option>진행중</option>
-                                            <option>마감</option>
-                                        </select>
+                                        <label className="label-style">공고 상태</label>
+                                        <Select name="status" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
+                                            <option>진행중</option> <option>마감</option>
+                                        </Select>
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">메모</label>
-                                        <textarea
-                                            value={formData.memo}
-                                            onChange={(e) => setFormData({...formData, memo: e.target.value})}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                            rows="3"
-                                        />
-                                    </div>
+                                    <div><label className="label-style">메모</label><Textarea name="memo" value={formData.memo} onChange={e => setFormData({...formData, memo: e.target.value})} rows="3" /></div>
                                     <div className="flex space-x-4">
-                                        <button
-                                            type="submit"
-                                            className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                                        >
-                                            {editingJob ? '수정' : '추가'}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setShowForm(false);
-                                                setEditingJob(null);
-                                                setFormData({
-                                                    site: '사람인',
-                                                    title: '',
-                                                    position: '',
-                                                    company: '',
-                                                    startDate: '',
-                                                    endDate: '',
-                                                    status: '진행중',
-                                                    memo: ''
-                                                });
-                                            }}
-                                            className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 transition-colors"
-                                        >
-                                            취소
-                                        </button>
+                                        <Button type="submit" variant="primary" className="flex-1">{editingJob ? '수정' : '추가'}</Button>
+                                        <Button type="button" variant="secondary" className="flex-1" onClick={resetForm}>취소</Button>
                                     </div>
                                 </form>
                             </div>
                         </div>
                     )}
-                    
-                    {selectedJob && (
-                        <JobDetailModal
-                            job={selectedJob}
-                            dailyRecords={dailyRecords}
-                            onClose={() => setSelectedJob(null)}
-                        />
-                    )}
 
-                    {/* [수정] 테이블 래퍼 추가 (모바일 스크롤) */}
+                    {selectedJob && <JobDetailModal job={selectedJob} applicants={applicants} onClose={() => setSelectedJob(null)} />}
+
                     <div className="bg-white rounded-xl shadow-lg overflow-hidden">
                         <div className="overflow-x-auto">
                             <table className="w-full">
                                 <thead className="bg-gray-50">
                                     <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">사이트</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">공고 제목</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">직무</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">업체명</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">기간</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">상태</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">작업</th>
+                                        <th className="th-style">사이트</th>
+                                        <th className="th-style">공고 제목</th>
+                                        <th className="th-style">직무</th>
+                                        <th className="th-style">업체명</th>
+                                        <th className="th-style">기간</th>
+                                        <th className="th-style">상태</th>
+                                        <th className="th-style">작업</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
                                     {jobs.map(job => (
-                                        <tr 
-                                            key={job.id} 
-                                            className="hover:bg-gray-100 cursor-pointer"
-                                            onClick={() => setSelectedJob(job)}
-                                        >
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                                                    {job.site}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">{job.title}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap">{job.position}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap">{job.company}</td>
-                                            <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">
-                                                {job.startDate} ~ {job.endDate}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                                                    job.status === '진행중' 
-                                                        ? 'bg-green-100 text-green-800' 
-                                                        : 'bg-gray-100 text-gray-800'
-                                                }`}>
-                                                    {job.status}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
+                                        <tr key={job.id} className="hover:bg-gray-100 cursor-pointer" onClick={() => setSelectedJob(job)}>
+                                            <td className="td-style table-cell-nowrap"><span className="badge-blue">{job.site}</span></td>
+                                            <td className="td-style table-cell-nowrap">{job.title}</td>
+                                            <td className="td-style table-cell-nowrap">{job.position}</td>
+                                            <td className="td-style table-cell-nowrap">{job.company}</td>
+                                            <td className="td-style table-cell-nowrap text-sm text-gray-600">{job.startDate} ~ {job.endDate}</td>
+                                            <td className="td-style table-cell-nowrap"><span className={job.status === '진행중' ? 'badge-green' : 'badge-gray'}>{job.status}</span></td>
+                                            <td className="td-style table-cell-nowrap">
                                                 <div className="flex space-x-2">
-                                                    <button
-                                                        onClick={(e) => handleEdit(e, job)}
-                                                        className="text-blue-600 hover:text-blue-800"
-                                                    >
-                                                        <Icon name="edit" size={18} />
-                                                    </button>
-                                                    <button
-                                                        onClick={(e) => handleDelete(e, job.id)}
-                                                        className="text-red-600 hover:text-red-800"
-                                                    >
-                                                        <Icon name="trash-2" size={18} />
-                                                    </button>
+                                                    <button onClick={(e) => handleEdit(e, job)} className="text-blue-600 hover:text-blue-800"><Icon name="edit" size={18} /></button>
+                                                    <button onClick={(e) => handleDelete(e, job.id)} className="text-red-600 hover:text-red-800"><Icon name="trash-2" size={18} /></button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -1324,160 +971,291 @@
                                 </tbody>
                             </table>
                         </div>
-                        {jobs.length === 0 && (
-                            <div className="text-center py-12 text-gray-500">
-                                등록된 공고가 없습니다. 공고를 추가해주세요.
-                            </div>
-                        )}
+                        {jobs.length === 0 && <div className="text-center py-12 text-gray-500">등록된 공고가 없습니다.</div>}
                     </div>
                 </div>
             );
         };
-        
-        // DailyUpdate용 헬퍼 함수 (이전과 동일)
-        const calculateTotals = (records) => {
-            const totals = { views: 0, applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 };
-            const fields = ['views', 'applications', 'contacts', 'interviews', 'offers', 'hires'];
-            records.forEach(record => {
-                fields.forEach(field => {
-                    totals[field] += record[field + 'Increase'] || 0;
-                });
-            });
-            return totals;
-        };
-        const fields = ['views', 'applications', 'contacts', 'interviews', 'offers', 'hires'];
 
-        // --- [수정] 일일 업데이트 (반응형) ---
+        // --- 지원자 상태 뱃지 ---
+        const ApplicantStatusBadge = ({ status }) => {
+            const colors = {
+                '지원': 'bg-blue-100 text-blue-800', '서류검토': 'bg-yellow-100 text-yellow-800',
+                '면접': 'bg-purple-100 text-purple-800', '합격': 'bg-green-100 text-green-800',
+                '입사': 'bg-emerald-100 text-emerald-800', '불합격': 'bg-red-100 text-red-800',
+            };
+            return (
+                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${colors[status] || 'bg-gray-100 text-gray-800'}`}>
+                    {status || '미지정'}
+                </span>
+            );
+        };
+
+        // --- 지원자 관리 ---
+        const ApplicantManagement = ({ applicants, jobs, loadData }) => {
+            const [showForm, setShowForm] = useState(false);
+            const [editingApplicant, setEditingApplicant] = useState(null);
+            const [formData, setFormData] = useState({ name: '', gender: '남', ageGroup: '20대', contactInfo: '', appliedJobId: '', appliedDate: new Date().toISOString().split('T')[0], status: '지원', memo: '' });
+            const [filters, setFilters] = useState({ jobId: 'all', status: 'all' });
+            const [searchTerm, setSearchTerm] = useState('');
+
+            const activeJobs = useMemo(() => jobs.filter(j => j.status === '진행중'), [jobs]);
+            const applicantStatuses = ['지원', '서류검토', '면접', '합격', '입사', '불합격'];
+
+            useEffect(() => {
+                if (!editingApplicant && activeJobs.length > 0 && !formData.appliedJobId) {
+                    setFormData(prev => ({ ...prev, appliedJobId: activeJobs[0].id }));
+                }
+            }, [activeJobs, editingApplicant, formData.appliedJobId]);
+
+            const handleInputChange = (e) => {
+                const { name, value } = e.target;
+                setFormData(prev => ({ ...prev, [name]: value }));
+            };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                if (!formData.appliedJobId) { alert('지원 공고를 선택해주세요.'); return; }
+                try {
+                    const data = { ...formData, updatedAt: new Date().toISOString() };
+                    if (editingApplicant) {
+                        await db.collection('applicants').doc(editingApplicant.id).update(data);
+                    } else {
+                        await db.collection('applicants').add({ ...data, createdAt: new Date().toISOString() });
+                    }
+                    resetForm();
+                    loadData();
+                    alert('저장되었습니다!');
+                } catch (error) { alert('저장 실패: ' + error.message); }
+            };
+
+            const handleEdit = (applicant) => {
+                setEditingApplicant(applicant);
+                setFormData({
+                    name: applicant.name || '', gender: applicant.gender || '남', ageGroup: applicant.ageGroup || '20대',
+                    contactInfo: applicant.contactInfo || '', appliedJobId: applicant.appliedJobId || '',
+                    appliedDate: applicant.appliedDate || new Date().toISOString().split('T')[0],
+                    status: applicant.status || '지원', memo: applicant.memo || ''
+                });
+                setShowForm(true);
+            };
+
+            const handleDelete = async (id) => {
+                if (confirm('정말 삭제하시겠습니까? 지원자 정보가 영구적으로 삭제됩니다.')) {
+                    try {
+                        await db.collection('applicants').doc(id).delete();
+                        loadData();
+                        alert('삭제되었습니다!');
+                    } catch (error) { alert('삭제 실패: ' + error.message); }
+                }
+            };
+
+            const resetForm = () => {
+                setShowForm(false);
+                setEditingApplicant(null);
+                setFormData({ name: '', gender: '남', ageGroup: '20대', contactInfo: '', appliedJobId: activeJobs.length > 0 ? activeJobs[0].id : '', appliedDate: new Date().toISOString().split('T')[0], status: '지원', memo: '' });
+            };
+
+            const handleStatusChange = async (applicantId, newStatus) => {
+                try {
+                    await db.collection('applicants').doc(applicantId).update({ status: newStatus, updatedAt: new Date().toISOString() });
+                    loadData();
+                } catch (error) { alert('상태 변경 실패: ' + error.message); }
+            };
+
+            const filteredApplicants = useMemo(() => {
+                return applicants.filter(a => {
+                    const jobMatch = filters.jobId === 'all' || a.appliedJobId === filters.jobId;
+                    const statusMatch = filters.status === 'all' || a.status === filters.status;
+                    const nameMatch = searchTerm === '' || (a.name && a.name.toLowerCase().includes(searchTerm.toLowerCase()));
+                    return jobMatch && statusMatch && nameMatch;
+                });
+            }, [applicants, filters, searchTerm]);
+
+            const getJobTitle = useCallback((jobId) => jobs.find(j => j.id === jobId)?.title || 'N/A', [jobs]);
+
+            return (
+                <div className="p-4 md:p-8">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+                        <h2 className="text-2xl md:text-3xl font-bold text-gray-800">지원자 관리</h2>
+                        <button onClick={() => setShowForm(true)} className="btn-primary px-4 py-2 md:px-6 md:py-3 flex items-center space-x-2 mt-4 md:mt-0">
+                            <Icon name="user-plus" size={20} /> <span>지원자 추가</span>
+                        </button>
+                    </div>
+
+                    {showForm && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                            <div className="bg-white rounded-xl shadow-2xl p-6 md:p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                                <h3 className="text-2xl font-bold mb-6">{editingApplicant ? '지원자 수정' : '지원자 추가'}</h3>
+                                <form onSubmit={handleSubmit} className="space-y-4">
+                                     <div><label className="label-style">이름</label><Input type="text" name="name" value={formData.name} onChange={handleInputChange} required /></div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div><label className="label-style">성별</label><Select name="gender" value={formData.gender} onChange={handleInputChange}><option>남</option><option>여</option></Select></div>
+                                        <div><label className="label-style">연령대</label><Select name="ageGroup" value={formData.ageGroup} onChange={handleInputChange}><option>20대</option><option>30대</option><option>40대</option><option>50대 이상</option></Select></div>
+                                    </div>
+                                    <div><label className="label-style">연락처</label><Input type="text" name="contactInfo" value={formData.contactInfo} onChange={handleInputChange} /></div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="label-style">지원 공고</label>
+                                            <Select name="appliedJobId" value={formData.appliedJobId} onChange={handleInputChange} required>
+                                                <option value="">-- 공고 선택 --</option>
+                                                {activeJobs.map(job => <option key={job.id} value={job.id}>{job.title} ({job.site})</option>)}
+                                            </Select>
+                                        </div>
+                                        <div><label className="label-style">지원 날짜</label><Input type="date" name="appliedDate" value={formData.appliedDate} onChange={handleInputChange} required /></div>
+                                    </div>
+                                     <div>
+                                        <label className="label-style">현재 상태</label>
+                                        <Select name="status" value={formData.status} onChange={handleInputChange}>
+                                            {applicantStatuses.map(status => <option key={status} value={status}>{status}</option>)}
+                                        </Select>
+                                    </div>
+                                    <div><label className="label-style">메모</label><Textarea name="memo" value={formData.memo} onChange={handleInputChange} rows="3" /></div>
+                                    <div className="flex space-x-4">
+                                        <Button type="submit" variant="primary" className="flex-1">{editingApplicant ? '수정' : '추가'}</Button>
+                                        <Button type="button" variant="secondary" className="flex-1" onClick={resetForm}>취소</Button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="bg-white rounded-xl shadow-lg p-4 mb-6">
+                        <div className="flex flex-col md:flex-row md:items-center gap-4">
+                            <div className="flex-1 min-w-0">
+                                <Input type="text" placeholder="이름 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                            </div>
+                            <div className="flex space-x-2 w-full md:w-auto">
+                                <Select value={filters.jobId} onChange={(e) => setFilters(prev => ({ ...prev, jobId: e.target.value }))} className="filter-select flex-1 md:flex-none">
+                                    <option value="all">모든 공고</option>
+                                    {activeJobs.map(job => <option key={job.id} value={job.id}>{job.title}</option>)}
+                                </Select>
+                                <Select value={filters.status} onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))} className="filter-select flex-1 md:flex-none">
+                                    <option value="all">모든 상태</option>
+                                    {applicantStatuses.map(status => <option key={status} value={status}>{status}</option>)}
+                                </Select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="th-style">이름</th>
+                                        <th className="th-style">성별</th>
+                                        <th className="th-style">연령대</th>
+                                        <th className="th-style">연락처</th>
+                                        <th className="th-style">지원 공고</th>
+                                        <th className="th-style">지원일</th>
+                                        <th className="th-style">상태</th>
+                                        <th className="th-style">작업</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {filteredApplicants.map(applicant => (
+                                        <tr key={applicant.id} className="hover:bg-gray-50">
+                                            <td className="td-style table-cell-nowrap">{applicant.name}</td>
+                                            <td className="td-style table-cell-nowrap">{applicant.gender}</td>
+                                            <td className="td-style table-cell-nowrap">{applicant.ageGroup}</td>
+                                            <td className="td-style table-cell-nowrap">{applicant.contactInfo}</td>
+                                            <td className="td-style table-cell-nowrap">{getJobTitle(applicant.appliedJobId)}</td>
+                                            <td className="td-style table-cell-nowrap">{applicant.appliedDate}</td>
+                                            <td className="td-style table-cell-nowrap">
+                                                <Select value={applicant.status} onChange={(e) => handleStatusChange(applicant.id, e.target.value)} className="p-1 text-xs w-24">
+                                                    {applicantStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                                                </Select>
+                                            </td>
+                                            <td className="td-style table-cell-nowrap">
+                                                <div className="flex space-x-2">
+                                                    <button onClick={() => handleEdit(applicant)} className="text-blue-600 hover:text-blue-800"><Icon name="edit" size={16} /></button>
+                                                    <button onClick={() => handleDelete(applicant.id)} className="text-red-600 hover:text-red-800"><Icon name="trash-2" size={16} /></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        {applicants.length === 0 && <div className="text-center py-12 text-gray-500">등록된 지원자가 없습니다.</div>}
+                        {applicants.length > 0 && filteredApplicants.length === 0 && <div className="text-center py-12 text-gray-500">필터 결과와 일치하는 지원자가 없습니다.</div>}
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 조회수 업데이트 ---
         const DailyUpdate = ({ jobs, dailyRecords, loadData }) => {
             const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-            const [cumulativeInputs, setCumulativeInputs] = useState({});
-            const [previousTotals, setPreviousTotals] = useState({});
+            const [viewInputs, setViewInputs] = useState({});
+            const [previousViews, setPreviousViews] = useState({});
             const [recordsForDate, setRecordsForDate] = useState({});
             const [isSaving, setIsSaving] = useState(false);
 
-            const activeJobs = useMemo(() => {
-                return jobs.filter(j => j.status === '진행중');
-            }, [jobs]);
+            const activeJobs = useMemo(() => jobs.filter(j => j.status === '진행중'), [jobs]);
 
             useEffect(() => {
                 const recordsBefore = dailyRecords.filter(r => r.date < selectedDate);
                 const recordsOn = dailyRecords.filter(r => r.date === selectedDate);
-                
-                const newPrevTotals = {};
-                const newCumulativeInputs = {};
-                const newRecordsForDate = {};
+                const newPrevViews = {}, newCurrentViews = {}, newRecordsForDate = {};
 
                 for (const job of activeJobs) {
                     const jobRecordsBefore = recordsBefore.filter(r => r.jobId === job.id);
                     const jobRecordsOn = recordsOn.filter(r => r.jobId === job.id);
-                    
-                    const jobPrevTotal = calculateTotals(jobRecordsBefore);
-                    const jobIncreaseOn = calculateTotals(jobRecordsOn);
-
-                    newPrevTotals[job.id] = jobPrevTotal;
-                    
-                    const currentCumulative = {};
-                    fields.forEach(field => {
-                        currentCumulative[field] = (jobPrevTotal[field] || 0) + (jobIncreaseOn[field] || 0);
-                    });
-                    newCumulativeInputs[job.id] = currentCumulative;
-
+                    const prevTotalViews = jobRecordsBefore.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
+                    const increaseOnDate = jobRecordsOn.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
+                    newPrevViews[job.id] = prevTotalViews;
+                    newCurrentViews[job.id] = prevTotalViews + increaseOnDate;
                     newRecordsForDate[job.id] = jobRecordsOn.map(r => r.id);
                 }
-
-                setPreviousTotals(newPrevTotals);
-                setCumulativeInputs(newCumulativeInputs);
-                setRecordsForDate(setRecordsForDate);
-
+                setPreviousViews(newPrevViews);
+                setViewInputs(newCurrentViews);
+                setRecordsForDate(newRecordsForDate);
             }, [selectedDate, dailyRecords, activeJobs]);
 
-            // (이하 핸들러는 이전과 동일)
+            const handleChange = (jobId, value) => {
+                setViewInputs(prev => ({ ...prev, [jobId]: value === '' ? '' : (parseInt(value) || 0) }));
+            };
+
             const handleSubmit = async () => {
                 setIsSaving(true);
                 try {
                     const batch = db.batch();
-                    
-                    for (const [jobId, inputFields] of Object.entries(cumulativeInputs)) {
+                    for (const [jobId, currentViewInput] of Object.entries(viewInputs)) {
                         const recordsToDelete = recordsForDate[jobId] || [];
-                        recordsToDelete.forEach(docId => {
-                            batch.delete(db.collection('dailyRecords').doc(docId));
-                        });
-
-                        const prevTotals = previousTotals[jobId] || {};
-                        const newIncreases = {};
-                        let hasChanges = false;
-
-                        fields.forEach(field => {
-                            const newCumulative = inputFields[field] || 0;
-                            const prevCumulative = prevTotals[field] || 0;
-                            const increase = newCumulative - prevCumulative;
-                            
-                            if (increase !== 0) {
-                                newIncreases[field + 'Increase'] = increase;
-                                hasChanges = true;
-                            }
-                        });
-
-                        if (hasChanges) {
+                        recordsToDelete.forEach(docId => batch.delete(db.collection('dailyRecords').doc(docId)));
+                        const prevTotal = previousViews[jobId] || 0;
+                        const currentTotal = currentViewInput || 0;
+                        const increase = currentTotal - prevTotal;
+                        if (increase !== 0) {
                             const docRef = db.collection('dailyRecords').doc();
-                            batch.set(docRef, {
-                                jobId,
-                                date: selectedDate,
-                                ...newIncreases,
-                                createdAt: new Date().toISOString()
-                            });
+                            batch.set(docRef, { jobId, date: selectedDate, viewsIncrease: increase, createdAt: new Date().toISOString() });
                         }
                     }
-
                     await batch.commit();
-                    alert('저장되었습니다!');
-                    loadData(); 
-                } catch (error) {
-                    alert('저장 실패: ' + error.message);
-                } finally {
-                    setIsSaving(false);
-                }
-            };
-            
-            const handleChange = (jobId, field, value) => {
-                setCumulativeInputs(prev => ({
-                    ...prev,
-                    [jobId]: {
-                        ...prev[jobId],
-                        [field]: value === '' ? '' : (parseInt(value) || 0)
-                    }
-                }));
+                    alert('조회수가 저장되었습니다!');
+                    loadData();
+                } catch (error) { alert('저장 실패: ' + error.message); }
+                finally { setIsSaving(false); }
             };
 
             return (
-                // [수정] 모바일 패딩 p-4
                 <div className="p-4 md:p-8">
-                    {/* [수정] 반응형 헤더 (flex-col) */}
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
                         <div>
-                            <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-4">일일 업데이트</h2>
+                            <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-4">조회수 업데이트</h2>
                             <div className="flex items-center space-x-4">
                                 <label className="font-medium text-gray-700">날짜:</label>
-                                <input
-                                    type="date"
-                                    value={selectedDate}
-                                    onChange={(e) => setSelectedDate(e.target.value)}
-                                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                />
+                                <Input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
                             </div>
                         </div>
                         {activeJobs.length > 0 && (
-                            <button
-                                onClick={handleSubmit}
-                                disabled={isSaving}
-                                // [수정] 모바일 마진
-                                className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-lg disabled:opacity-50 mt-4 md:mt-0 w-full md:w-auto"
-                            >
-                                {isSaving ? '저장 중...' : '저장하기'}
-                            </button>
+                            <Button onClick={handleSubmit} disabled={isSaving} variant="primary" className="mt-4 md:mt-0 w-full md:w-auto">
+                                {isSaving ? '저장 중...' : '조회수 저장'}
+                            </Button>
                         )}
                     </div>
-
                     <div className="space-y-4 mb-8">
                         {activeJobs.map(job => (
                             <div key={job.id} className="bg-white rounded-xl shadow-lg p-6">
@@ -1485,373 +1263,156 @@
                                     <h3 className="text-lg font-semibold text-gray-800">{job.title}</h3>
                                     <p className="text-sm text-gray-600">{job.site} | {job.position}</p>
                                 </div>
-                                {/* [수정] 반응형 그리드 */}
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                                    {/* (input 필드들은 동일) */}
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">조회수 (누적)</label>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            value={cumulativeInputs[job.id]?.views ?? ''}
-                                            onChange={(e) => handleChange(job.id, 'views', e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                            placeholder="0"
-                                        />
-                                        <p className="text-xs text-gray-500 mt-1">(어제까지: {previousTotals[job.id]?.views || 0})</p>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">지원자 (누적)</label>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            value={cumulativeInputs[job.id]?.applications ?? ''}
-                                            onChange={(e) => handleChange(job.id, 'applications', e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                            placeholder="0"
-                                        />
-                                        <p className="text-xs text-gray-500 mt-1">(어제까지: {previousTotals[job.id]?.applications || 0})</p>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">면접 컨택 (누적)</label>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            value={cumulativeInputs[job.id]?.contacts ?? ''}
-                                            onChange={(e) => handleChange(job.id, 'contacts', e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                            placeholder="0"
-                                        />
-                                        <p className="text-xs text-gray-500 mt-1">(어제까지: {previousTotals[job.id]?.contacts || 0})</p>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">면접 진행 (누적)</label>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            value={cumulativeInputs[job.id]?.interviews ?? ''}
-                                            onChange={(e) => handleChange(job.id, 'interviews', e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                            placeholder="0"
-                                        />
-                                        <p className="text-xs text-gray-500 mt-1">(어제까지: {previousTotals[job.id]?.interviews || 0})</p>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">합격자 (누적)</label>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            value={cumulativeInputs[job.id]?.offers ?? ''}
-                                            onChange={(e) => handleChange(job.id, 'offers', e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                            placeholder="0"
-                                        />
-                                        <p className="text-xs text-gray-500 mt-1">(어제까지: {previousTotals[job.id]?.offers || 0})</p>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">입과 (누적)</label>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            value={cumulativeInputs[job.id]?.hires ?? ''}
-                                            onChange={(e) => handleChange(job.id, 'hires', e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                            placeholder="0"
-                                        />
-                                        <p className="text-xs text-gray-500 mt-1">(어제까지: {previousTotals[job.id]?.hires || 0})</p>
-                                    </div>
+                                <div>
+                                    <label className="label-style mb-1">조회수 (누적)</label>
+                                    <Input type="number" min="0" value={viewInputs[job.id] ?? ''} onChange={(e) => handleChange(job.id, e.target.value)} className="w-full md:w-1/3" placeholder="0" />
+                                    <p className="text-xs text-gray-500 mt-1">(어제까지 누적: {previousViews[job.id] || 0})</p>
                                 </div>
                             </div>
                         ))}
                     </div>
-
-                    {activeJobs.length === 0 && (
-                        <div className="text-center py-12 text-gray-500">
-                            진행중인 공고가 없습니다.
-                        </div>
-                    )}
+                    {activeJobs.length === 0 && <div className="text-center py-12 text-gray-500">진행중인 공고가 없습니다.</div>}
                 </div>
             );
         };
 
-        // --- [수정] 사이트 비교 (반응형 그리드) ---
-        const SiteComparison = ({ jobs, dailyRecords }) => {
-            // (이하 데이터 로직은 이전과 동일)
+        // --- 사이트 비교 ---
+        const SiteComparison = ({ jobs, applicants, dailyRecords }) => {
             const sites = ['사람인', '잡코리아', '인크루트'];
-            
+
             const siteData = useMemo(() => {
                 return sites.map(site => {
                     const siteJobs = jobs.filter(j => j.site === site);
                     const jobIds = siteJobs.map(j => j.id);
+
                     const siteRecords = dailyRecords.filter(r => jobIds.includes(r.jobId));
-                    
-                    const totals = {
-                        site,
-                        jobs: siteJobs.length,
-                        views: 0,
-                        applications: 0,
-                        contacts: 0,
-                        interviews: 0,
-                        offers: 0,
-                        hires: 0
-                    };
+                    const totalViews = siteRecords.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
 
-                    siteRecords.forEach(record => {
-                        totals.views += record.viewsIncrease || 0;
-                        totals.applications += record.applicationsIncrease || 0;
-                        totals.contacts += record.contactsIncrease || 0;
-                        totals.interviews += record.interviewsIncrease || 0;
-                        totals.offers += record.offersIncrease || 0;
-                        totals.hires += record.hiresIncrease || 0;
+                    const siteApplicants = applicants.filter(a => jobIds.includes(a.appliedJobId));
+                    const totals = { site, jobs: siteJobs.length, views: totalViews, applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 };
+                    siteApplicants.forEach(a => {
+                        totals.applications++;
+                        if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++;
+                        if (['합격', '입사'].includes(a.status)) totals.offers++;
+                        if (a.status === '입사') totals.hires++;
                     });
-
-                    totals.conversionRate = totals.applications > 0 
-                        ? ((totals.hires / totals.applications) * 100).toFixed(1)
-                        : 0;
-
+                    totals.conversionRate = totals.applications > 0 ? ((totals.hires / totals.applications) * 100).toFixed(1) : 0;
                     return totals;
                 });
-            }, [jobs, dailyRecords]);
+            }, [jobs, applicants, dailyRecords]);
 
             const chartData = {
                 labels: siteData.map(d => d.site),
                 datasets: [
-                    {
-                        label: '지원자',
-                        data: siteData.map(d => d.applications),
-                        backgroundColor: 'rgba(59, 130, 246, 0.8)'
-                    },
-                    {
-                        label: '면접',
-                        data: siteData.map(d => d.interviews),
-                        backgroundColor: 'rgba(139, 92, 246, 0.8)'
-                    },
-                    {
-                        label: '입사자',
-                        data: siteData.map(d => d.hires),
-                        backgroundColor: 'rgba(16, 185, 129, 0.8)'
-                    }
+                    { label: '지원자', data: siteData.map(d => d.applications), backgroundColor: 'rgba(59, 130, 246, 0.8)' },
+                    { label: '면접', data: siteData.map(d => d.interviews), backgroundColor: 'rgba(139, 92, 246, 0.8)' },
+                    { label: '입사자', data: siteData.map(d => d.hires), backgroundColor: 'rgba(16, 185, 129, 0.8)' }
                 ]
             };
 
             return (
-                // [수정] 모바일 패딩 p-4
                 <div className="p-4 md:p-8">
                     <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-8">사이트 비교</h2>
-                    
-                    {/* [수정] 반응형 그리드 */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                         {siteData.map(data => (
                             <div key={data.site} className="bg-white rounded-xl shadow-lg p-6">
                                 <h3 className="text-xl font-bold text-center mb-6 text-blue-600">{data.site}</h3>
                                 <div className="space-y-3">
-                                    <div className="flex justify-between items-center pb-2 border-b">
-                                        <span className="text-gray-600">공고 수</span>
-                                        <span className="text-xl font-bold">{data.jobs}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center pb-2 border-b">
-                                        <span className="text-gray-600">조회수</span>
-                                        <span className="text-xl font-bold">{data.views}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center pb-2 border-b">
-                                        <span className="text-gray-600">지원자</span>
-                                        <span className="text-xl font-bold">{data.applications}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center pb-2 border-b">
-                                        <span className="text-gray-600">면접</span>
-                                        <span className="text-xl font-bold">{data.interviews}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center pb-2 border-b">
-                                        <span className="text-gray-600">합격자</span>
-                                        <span className="text-xl font-bold">{data.offers}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center pb-2 border-b">
-                                        <span className="text-gray-600">입사자</span>
-                                        <span className="text-xl font-bold text-green-600">{data.hires}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center pt-2">
-                                        <span className="text-gray-600 font-semibold">전환율</span>
-                                        <span className="text-2xl font-bold text-blue-600">{data.conversionRate}%</span>
-                                    </div>
+                                    <div className="stat-item"><span className="stat-label">공고 수</span><span className="stat-value">{data.jobs}</span></div>
+                                    <div className="stat-item"><span className="stat-label">조회수</span><span className="stat-value">{data.views}</span></div>
+                                    <div className="stat-item"><span className="stat-label">지원자</span><span className="stat-value">{data.applications}</span></div>
+                                    <div className="stat-item"><span className="stat-label">면접</span><span className="stat-value">{data.interviews}</span></div>
+                                    <div className="stat-item"><span className="stat-label">합격자</span><span className="stat-value">{data.offers}</span></div>
+                                    <div className="stat-item"><span className="stat-label">입사자</span><span className="stat-value text-green-600">{data.hires}</span></div>
+                                    <div className="flex justify-between items-center pt-2"><span className="text-gray-600 font-semibold">전환율</span><span className="text-2xl font-bold text-blue-600">{data.conversionRate}%</span></div>
                                 </div>
                             </div>
                         ))}
                     </div>
-
                     <div className="bg-white rounded-xl shadow-lg p-6">
                         <h3 className="text-xl font-semibold mb-4">사이트별 비교 차트</h3>
                         <div style={{ height: '350px' }}>
-                            <ChartComponent
-                                type="bar"
-                                data={chartData}
-                                options={{
-                                    scales: {
-                                        y: {
-                                            beginAtZero: true
-                                        }
-                                    }
-                                }}
-                            />
+                            <ChartComponent type="bar" data={chartData} options={{ scales: { y: { beginAtZero: true } } }} />
                         </div>
                     </div>
                 </div>
             );
         };
 
-        // --- [수정] 효율성 분석 (반응형 테이블) ---
-        const EfficiencyAnalysis = ({ jobs, dailyRecords, siteSettings }) => {
-            // (이하 데이터 로직은 이전과 동일)
+        // --- 효율성 분석 ---
+        const EfficiencyAnalysis = ({ jobs, applicants, siteSettings }) => {
             const analysisData = useMemo(() => {
                 const sites = ['사람인', '잡코리아', '인크루트'];
                 return sites.map(site => {
                     const siteJobs = jobs.filter(j => j.site === site);
                     const jobIds = siteJobs.map(j => j.id);
-                    const siteRecords = dailyRecords.filter(r => jobIds.includes(r.jobId));
                     const settings = siteSettings.find(s => s.site === site);
-                    
-                    const totals = {
-                        applications: 0,
-                        contacts: 0,
-                        interviews: 0,
-                        offers: 0,
-                        hires: 0
-                    };
-
-                    siteRecords.forEach(record => {
-                        totals.applications += record.applicationsIncrease || 0;
-                        totals.contacts += record.contactsIncrease || 0;
-                        totals.interviews += record.interviewsIncrease || 0;
-                        totals.offers += record.offersIncrease || 0;
-                        totals.hires += record.hiresIncrease || 0;
+                    const siteApplicants = applicants.filter(a => jobIds.includes(a.appliedJobId));
+                    const totals = { applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 };
+                    siteApplicants.forEach(a => {
+                        totals.applications++;
+                        if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++;
+                        if (['합격', '입사'].includes(a.status)) totals.offers++;
+                        if (a.status === '입사') totals.hires++;
                     });
-
                     const cost = settings?.monthlyCost || 0;
                     const costPerHire = totals.hires > 0 ? (cost / totals.hires).toFixed(0) : 0;
-                    
                     const rates = {
-                        contactRate: totals.applications > 0 ? ((totals.contacts / totals.applications) * 100).toFixed(1) : 0,
-                        interviewRate: totals.contacts > 0 ? ((totals.interviews / totals.contacts) * 100).toFixed(1) : 0,
-                        offerRate: totals.interviews > 0 ? ((totals.offers / totals.interviews) * 100).toFixed(1) : 0,
-                        hireRate: totals.offers > 0 ? ((totals.hires / totals.offers) * 100).toFixed(1) : 0,
+                        interviewFromAppRate: totals.applications > 0 ? ((totals.interviews / totals.applications) * 100).toFixed(1) : 0,
+                        offerFromInterviewRate: totals.interviews > 0 ? ((totals.offers / totals.interviews) * 100).toFixed(1) : 0,
+                        hireFromOfferRate: totals.offers > 0 ? ((totals.hires / totals.offers) * 100).toFixed(1) : 0,
                         overallRate: totals.applications > 0 ? ((totals.hires / totals.applications) * 100).toFixed(1) : 0
                     };
-
-                    return {
-                        site,
-                        ...totals,
-                        ...rates,
-                        cost,
-                        costPerHire,
-                        efficiency: parseFloat(rates.overallRate) - (cost / 100000)
-                    };
+                    return { site, ...totals, ...rates, cost, costPerHire, efficiency: parseFloat(rates.overallRate) - (cost / 100000) };
                 });
-            }, [jobs, dailyRecords, siteSettings]);
+            }, [jobs, applicants, siteSettings]);
 
             const sortedBySite = [...analysisData].sort((a, b) => b.overallRate - a.overallRate);
 
             return (
-                // [수정] 모바일 패딩 p-4
                 <div className="p-4 md:p-8">
                     <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-8">효율성 분석</h2>
-
                     <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
                         <h3 className="text-xl font-semibold mb-6">단계별 전환율</h3>
                         <div className="space-y-6">
                             {analysisData.map(data => (
                                 <div key={data.site} className="border-b pb-4 last:border-b-0">
                                     <h4 className="font-semibold text-lg mb-3">{data.site}</h4>
-                                    {/* [수정] 반응형 그리드 */}
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                                        <div>
-                                            <span className="text-gray-600">지원 → 컨택</span>
-                                            <p className="text-xl font-bold text-blue-600">{data.contactRate}%</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-gray-600">컨택 → 면접</span>
-                                            <p className="text-xl font-bold text-purple-600">{data.interviewRate}%</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-gray-600">면접 → 합격</span>
-                                            <p className="text-xl font-bold text-orange-600">{data.offerRate}%</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-gray-600">합격 → 입사</span>
-                                            <p className="text-xl font-bold text-green-600">{data.hireRate}%</p>
-                                        </div>
+                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm"> {/* 3칸으로 변경 */}
+                                        <div><span className="text-gray-600">지원 → 면접</span><p className="rate-value text-blue-600">{data.interviewFromAppRate}%</p></div>
+                                        <div><span className="text-gray-600">면접 → 합격</span><p className="rate-value text-purple-600">{data.offerFromInterviewRate}%</p></div>
+                                        <div><span className="text-gray-600">합격 → 입사</span><p className="rate-value text-green-600">{data.hireFromOfferRate}%</p></div>
                                     </div>
-                                    <div className="mt-3 pt-3 border-t">
-                                        <span className="text-gray-600">총 전환율 (지원 → 입사)</span>
-                                        <p className="text-2xl font-bold text-blue-600">{data.overallRate}%</p>
-                                    </div>
+                                    <div className="mt-3 pt-3 border-t"><span className="text-gray-600">총 전환율 (지원 → 입사)</span><p className="text-2xl font-bold text-blue-600">{data.overallRate}%</p></div>
                                 </div>
                             ))}
                         </div>
                     </div>
-
                     <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
                         <h3 className="text-xl font-semibold mb-6">비용 대비 효과 (ROI)</h3>
-                        {/* [수정] 테이블 래퍼 (모바일 스크롤) */}
                         <div className="overflow-x-auto">
                             <table className="w-full">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">사이트</th>
-                                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">월 이용료</th>
-                                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">입사자</th>
-                                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">1인당 비용</th>
-                                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">효율성 점수</th>
-                                    </tr>
-                                </thead>
+                                <thead className="bg-gray-50"><tr><th className="th-style">사이트</th><th className="th-style">월 이용료</th><th className="th-style">입사자</th><th className="th-style">1인당 비용</th><th className="th-style">효율성 점수</th></tr></thead>
                                 <tbody className="divide-y divide-gray-200">
                                     {analysisData.map(data => (
                                         <tr key={data.site} className="hover:bg-gray-50">
-                                            <td className="px-4 py-3 font-medium whitespace-nowrap">{data.site}</td>
-                                            <td className="px-4 py-3 whitespace-nowrap">{data.cost.toLocaleString()}원</td>
-                                            <td className="px-4 py-3 whitespace-nowrap">{data.hires}명</td>
-                                            <td className="px-4 py-3 font-semibold text-blue-600 whitespace-nowrap">
-                                                {data.costPerHire > 0 ? `${parseInt(data.costPerHire).toLocaleString()}원` : '-'}
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap">
-                                                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                                                    data.efficiency > 5 ? 'bg-green-100 text-green-800' :
-                                                    data.efficiency > 0 ? 'bg-yellow-100 text-yellow-800' :
-                                                    'bg-red-100 text-red-800'
-                                                }`}>
-                                                    {data.efficiency > 0 ? '높음' : data.efficiency > -5 ? '보통' : '낮음'}
-                                                </span>
-                                            </td>
+                                            <td className="td-style table-cell-nowrap">{data.site}</td><td className="td-style table-cell-nowrap">{data.cost.toLocaleString()}원</td><td className="td-style table-cell-nowrap">{data.hires}명</td>
+                                            <td className="td-style table-cell-nowrap font-semibold text-blue-600">{data.costPerHire > 0 ? `${parseInt(data.costPerHire).toLocaleString()}원` : '-'}</td>
+                                            <td className="td-style table-cell-nowrap"><span className={`badge-sm ${data.efficiency > 5 ? 'badge-green' : data.efficiency > 0 ? 'badge-yellow' : 'badge-red'}`}>{data.efficiency > 0 ? '높음' : data.efficiency > -5 ? '보통' : '낮음'}</span></td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
                         </div>
                     </div>
-
                     <div className="bg-white rounded-xl shadow-lg p-6">
                         <h3 className="text-xl font-semibold mb-6">사이트별 종합 순위</h3>
                         <div className="space-y-4">
                             {sortedBySite.map((data, index) => (
-                                // [수정] 반응형 flex
                                 <div key={data.site} className="flex flex-col md:flex-row items-start md:items-center space-y-2 md:space-y-0 md:space-x-4 p-4 bg-gray-50 rounded-lg">
-                                    <div className={`text-3xl font-bold ${
-                                        index === 0 ? 'text-yellow-500' :
-                                        index === 1 ? 'text-gray-400' :
-                                        'text-orange-600'
-                                    }`}>
-                                        {index + 1}
-                                    </div>
-                                    <div className="flex-1">
-                                        <h4 className="font-semibold text-lg">{data.site}</h4>
-                                        <p className="text-sm text-gray-600">
-                                            전환율 {data.overallRate}% | 입사자 {data.hires}명
-                                        </p>
-                                    </div>
-                                    <div className="text-left md:text-right w-full md:w-auto">
-                                        <p className="text-sm text-gray-600">1인당 비용</p>
-                                        <p className="text-lg font-bold text-blue-600">
-                                            {data.costPerHire > 0 ? `${parseInt(data.costPerHire).toLocaleString()}원` : '-'}
-                                        </p>
-                                    </div>
+                                    <div className={`text-3xl font-bold ${index === 0 ? 'text-yellow-500' : index === 1 ? 'text-gray-400' : 'text-orange-600'}`}>{index + 1}</div>
+                                    <div className="flex-1"><h4 className="font-semibold text-lg">{data.site}</h4><p className="text-sm text-gray-600">전환율 {data.overallRate}% | 입사자 {data.hires}명</p></div>
+                                    <div className="text-left md:text-right w-full md:w-auto"><p className="text-sm text-gray-600">1인당 비용</p><p className="text-lg font-bold text-blue-600">{data.costPerHire > 0 ? `${parseInt(data.costPerHire).toLocaleString()}원` : '-'}</p></div>
                                 </div>
                             ))}
                         </div>
@@ -1860,222 +1421,109 @@
             );
         };
 
-        // --- [수정] 트렌드 분석 (반응형 그리드) ---
-        const TrendAnalysis = ({ jobs, dailyRecords }) => {
-            // (이하 데이터 로직은 이전과 동일)
+        // --- 트렌드 분석 ---
+        const TrendAnalysis = ({ jobs, dailyRecords, applicants }) => {
             const [period, setPeriod] = useState('week');
             const [startDate, setStartDate] = useState('');
             const [endDate, setEndDate] = useState('');
 
             const trendData = useMemo(() => {
                 let filteredRecords = [...dailyRecords];
-                
-                if (period === 'custom' && startDate && endDate) {
-                    filteredRecords = filteredRecords.filter(r => 
-                        r.date >= startDate && r.date <= endDate
-                    );
-                } else {
-                    const today = new Date();
-                    let daysBack = 7;
-                    if (period === 'month') daysBack = 30;
-                    if (period === 'quarter') daysBack = 90;
-                    
-                    const cutoffDate = new Date(today.setDate(today.getDate() - daysBack));
-                    const cutoffStr = cutoffDate.toISOString().split('T')[0];
-                    filteredRecords = filteredRecords.filter(r => r.date >= cutoffStr);
+                let filteredApplicants = [...applicants];
+                if (period !== 'all') {
+                    let startDt, endDt = new Date();
+                    if (period === 'custom' && startDate && endDate) {
+                       startDt = new Date(startDate); endDt = new Date(endDate);
+                    } else {
+                        startDt = new Date();
+                        let daysBack = 7;
+                        if (period === 'month') daysBack = 30;
+                        if (period === 'quarter') daysBack = 90;
+                        startDt.setDate(endDt.getDate() - daysBack);
+                    }
+                    const startStr = startDt.toISOString().split('T')[0];
+                    const endStr = endDt.toISOString().split('T')[0];
+                    filteredRecords = filteredRecords.filter(r => r.date >= startStr && r.date <= endStr);
+                    filteredApplicants = filteredApplicants.filter(a => a.appliedDate >= startStr && a.appliedDate <= endStr);
                 }
 
                 const dateMap = {};
                 filteredRecords.forEach(record => {
-                    if (!dateMap[record.date]) {
-                        dateMap[record.date] = {
-                            date: record.date,
-                            views: 0,
-                            applications: 0,
-                            interviews: 0,
-                            offers: 0,
-                            hires: 0
-                        };
-                    }
+                    if (!dateMap[record.date]) dateMap[record.date] = { date: record.date, views: 0, applications: 0, interviews: 0, offers: 0, hires: 0 };
                     dateMap[record.date].views += record.viewsIncrease || 0;
-                    dateMap[record.date].applications += record.applicationsIncrease || 0;
-                    dateMap[record.date].interviews += record.interviewsIncrease || 0;
-                    dateMap[record.date].offers += record.offersIncrease || 0;
-                    dateMap[record.date].hires += record.hiresIncrease || 0;
                 });
-
+                filteredApplicants.forEach(applicant => {
+                    const date = applicant.appliedDate;
+                    if (!dateMap[date]) dateMap[date] = { date: date, views: 0, applications: 0, interviews: 0, offers: 0, hires: 0 };
+                    dateMap[date].applications++;
+                    if (['면접', '합격', '입사'].includes(applicant.status)) dateMap[date].interviews++;
+                    if (['합격', '입사'].includes(applicant.status)) dateMap[date].offers++;
+                    if (applicant.status === '입사') dateMap[date].hires++;
+                });
                 return Object.values(dateMap).sort((a, b) => a.date.localeCompare(b.date));
-            }, [dailyRecords, period, startDate, endDate]);
+            }, [dailyRecords, applicants, period, startDate, endDate]);
 
             const siteTrendData = useMemo(() => {
                 const sites = ['사람인', '잡코리아', '인크루트'];
                 return sites.map(site => {
                     const siteJobs = jobs.filter(j => j.site === site);
                     const jobIds = siteJobs.map(j => j.id);
-                    const siteRecords = dailyRecords.filter(r => jobIds.includes(r.jobId));
-                    
-                    const total = siteRecords.reduce((sum, r) => sum + (r.applicationsIncrease || 0), 0);
-                    return { site, applications: total };
+                    const siteApplicants = applicants.filter(a => jobIds.includes(a.appliedJobId));
+                    return { site, applications: siteApplicants.length };
                 });
-            }, [jobs, dailyRecords]);
+            }, [jobs, applicants]);
 
             const lineChartData = {
                 labels: trendData.map(d => d.date),
                 datasets: [
-                    {
-                        label: '조회수',
-                        data: trendData.map(d => d.views),
-                        borderColor: 'rgb(59, 130, 246)',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        tension: 0.4
-                    },
-                    {
-                        label: '지원자',
-                        data: trendData.map(d => d.applications),
-                        borderColor: 'rgb(16, 185, 129)',
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                        tension: 0.4
-                    },
-                    {
-                        label: '면접',
-                        data: trendData.map(d => d.interviews),
-                        borderColor: 'rgb(139, 92, 246)',
-                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                        tension: 0.4
-                    },
-                    {
-                        label: '입사자',
-                        data: trendData.map(d => d.hires),
-                        borderColor: 'rgb(245, 158, 11)',
-                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                        tension: 0.4
-                    }
+                    { label: '조회수', data: trendData.map(d => d.views), borderColor: 'rgb(59, 130, 246)', backgroundColor: 'rgba(59, 130, 246, 0.1)', tension: 0.4 },
+                    { label: '지원자', data: trendData.map(d => d.applications), borderColor: 'rgb(16, 185, 129)', backgroundColor: 'rgba(16, 185, 129, 0.1)', tension: 0.4 },
+                    { label: '면접', data: trendData.map(d => d.interviews), borderColor: 'rgb(139, 92, 246)', backgroundColor: 'rgba(139, 92, 246, 0.1)', tension: 0.4 },
+                    { label: '입사자', data: trendData.map(d => d.hires), borderColor: 'rgb(245, 158, 11)', backgroundColor: 'rgba(245, 158, 11, 0.1)', tension: 0.4 }
                 ]
             };
 
             const pieChartData = {
                 labels: siteTrendData.map(d => d.site),
-                datasets: [{
-                    data: siteTrendData.map(d => d.applications),
-                    backgroundColor: [
-                        'rgba(59, 130, 246, 0.8)',
-                        'rgba(16, 185, 129, 0.8)',
-                        'rgba(245, 158, 11, 0.8)'
-                    ]
-                }]
+                datasets: [{ data: siteTrendData.map(d => d.applications), backgroundColor: ['rgba(59, 130, 246, 0.8)', 'rgba(16, 185, 129, 0.8)', 'rgba(245, 158, 11, 0.8)'] }]
             };
 
             return (
-                // [수정] 모바일 패딩 p-4
                 <div className="p-4 md:p-8">
                     <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-8">트렌드 분석</h2>
-
                     <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-                        {/* [수정] flex-wrap 추가 */}
                         <div className="flex flex-wrap items-center gap-4">
                             <div className="flex flex-wrap gap-2">
-                                <button
-                                    onClick={() => setPeriod('week')}
-                                    className={`px-4 py-2 rounded-lg transition-colors ${
-                                        period === 'week' 
-                                            ? 'bg-blue-600 text-white' 
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                    }`}
-                                >
-                                    최근 1주일
-                                </button>
-                                <button
-                                    onClick={() => setPeriod('month')}
-                                    className={`px-4 py-2 rounded-lg transition-colors ${
-                                        period === 'month' 
-                                            ? 'bg-blue-600 text-white' 
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                    }`}
-                                >
-                                    최근 1개월
-                                </button>
-                                <button
-                                    onClick={() => setPeriod('quarter')}
-                                    className={`px-4 py-2 rounded-lg transition-colors ${
-                                        period === 'quarter' 
-                                            ? 'bg-blue-600 text-white' 
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                    }`}
-                                >
-                                    최근 3개월
-                                </button>
-                                <button
-                                    onClick={() => setPeriod('custom')}
-                                    className={`px-4 py-2 rounded-lg transition-colors ${
-                                        period === 'custom' 
-                                            ? 'bg-blue-600 text-white' 
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                    }`}
-                                >
-                                    기간 선택
-                                </button>
+                                <button onClick={() => setPeriod('week')} className={`btn-period ${period === 'week' ? 'btn-period-active' : ''}`}>최근 1주일</button>
+                                <button onClick={() => setPeriod('month')} className={`btn-period ${period === 'month' ? 'btn-period-active' : ''}`}>최근 1개월</button>
+                                <button onClick={() => setPeriod('quarter')} className={`btn-period ${period === 'quarter' ? 'btn-period-active' : ''}`}>최근 3개월</button>
+                                <button onClick={() => setPeriod('custom')} className={`btn-period ${period === 'custom' ? 'btn-period-active' : ''}`}>기간 선택</button>
                             </div>
-                            
                             {period === 'custom' && (
                                 <div className="flex items-center space-x-2">
-                                    <input
-                                        type="date"
-                                        value={startDate}
-                                        onChange={(e) => setStartDate(e.target.value)}
-                                        className="px-3 py-2 border border-gray-300 rounded-lg"
-                                    />
+                                    <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="py-2" />
                                     <span>~</span>
-                                    <input
-                                        type="date"
-                                        value={endDate}
-                                        onChange={(e) => setEndDate(e.target.value)}
-                                        className="px-3 py-2 border border-gray-300 rounded-lg"
-                                    />
+                                    <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="py-2" />
                                 </div>
                             )}
                         </div>
                     </div>
-
                     <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
                         <h3 className="text-xl font-semibold mb-4">일별 채용 단계 추이</h3>
-                        <div style={{ height: '350px' }}>
-                            <ChartComponent
-                                type="line"
-                                data={lineChartData}
-                                options={{
-                                    scales: {
-                                        y: {
-                                            beginAtZero: true
-                                        }
-                                    }
-                                }}
-                            />
-                        </div>
+                        <div style={{ height: '350px' }}> <ChartComponent type="line" data={lineChartData} options={{ scales: { y: { beginAtZero: true } } }} /> </div>
                     </div>
-
-                    {/* [수정] 반응형 그리드 */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="bg-white rounded-xl shadow-lg p-6">
                             <h3 className="text-xl font-semibold mb-4">사이트별 지원자 비율</h3>
-                            <div style={{ height: '280px' }}>
-                                <ChartComponent
-                                    type="pie"
-                                    data={pieChartData}
-                                    options={{}}
-                                />
-                            </div>
+                            <div style={{ height: '280px' }}> <ChartComponent type="pie" data={pieChartData} /> </div>
                         </div>
-
                         <div className="bg-white rounded-xl shadow-lg p-6">
-                            <h3 className="text-xl font-semibold mb-4">누적 데이터</h3>
+                            <h3 className="text-xl font-semibold mb-4">누적 데이터 (총 지원자)</h3>
                             <div className="space-y-4">
                                 {siteTrendData.map((data, index) => (
                                     <div key={data.site} className="flex items-center justify-between">
                                         <div className="flex items-center space-x-3">
-                                            <div 
-                                                className="w-4 h-4 rounded-full"
-                                                style={{ backgroundColor: ['rgb(59, 130, 246)', 'rgb(16, 185, 129)', 'rgb(245, 158, 11)'][index] }}
-                                            />
+                                            <div className="w-4 h-4 rounded-full" style={{ backgroundColor: pieChartData.datasets[0].backgroundColor[index] }} />
                                             <span className="font-medium">{data.site}</span>
                                         </div>
                                         <span className="text-xl font-bold">{data.applications}명</span>
@@ -2088,190 +1536,82 @@
             );
         };
 
-        // --- [수정] 설정 (반응형) ---
+        // --- 설정 ---
         const Settings = ({ siteSettings, goals, loadData }) => {
-            // (이하 데이터 로직은 이전과 동일)
             const [activeTab, setActiveTab] = useState('sites');
-            const [siteForm, setSiteForm] = useState({
-                site: '사람인',
-                monthlyCost: 0,
-                quarterlyCost: 0,
-                startDate: ''
-            });
-            const [goalForm, setGoalForm] = useState({
-                yearMonth: '',
-                targetHires: 0,
-                targetSaramin: 0,
-                targetJobkorea: 0,
-                targetIncruit: 0
-            });
-            
+            const [siteForm, setSiteForm] = useState({ site: '사람인', monthlyCost: 0, quarterlyCost: 0, startDate: '' });
+            const [goalForm, setGoalForm] = useState({ yearMonth: '', targetHires: 0, targetSaramin: 0, targetJobkorea: 0, targetIncruit: 0 });
+
             useEffect(() => {
-                if(activeTab === 'sites') {
+                if (activeTab === 'sites') {
                     const existing = siteSettings.find(s => s.site === '사람인');
-                    if(existing) setSiteForm(existing);
+                    setSiteForm(existing || { site: '사람인', monthlyCost: 0, quarterlyCost: 0, startDate: '' });
                 } else if (activeTab === 'goals') {
-                     const today = new Date().toISOString().substring(0, 7);
-                     const existing = goals.find(g => g.yearMonth === today);
-                     if(existing) {
-                        setGoalForm(existing);
-                     } else {
-                        setGoalForm({
-                            yearMonth: today,
-                            targetHires: 0,
-                            targetSaramin: 0,
-                            targetJobkorea: 0,
-                            targetIncruit: 0
-                        });
-                     }
+                    const today = new Date().toISOString().substring(0, 7);
+                    const existing = goals.find(g => g.yearMonth === today);
+                    setGoalForm(existing || { yearMonth: today, targetHires: 0, targetSaramin: 0, targetJobkorea: 0, targetIncruit: 0 });
                 }
             }, [activeTab, siteSettings, goals]);
-
 
             const handleSiteSubmit = async (e) => {
                 e.preventDefault();
                 try {
                     const existing = siteSettings.find(s => s.site === siteForm.site);
-                    if (existing) {
-                        await db.collection('siteSettings').doc(existing.id).update(siteForm);
-                    } else {
-                        await db.collection('siteSettings').add(siteForm);
-                    }
-                    alert('저장되었습니다!');
-                    loadData();
-                } catch (error) {
-                    alert('저장 실패: ' + error.message);
-                }
+                    const data = { ...siteForm, monthlyCost: Number(siteForm.monthlyCost), quarterlyCost: Number(siteForm.quarterlyCost) }; // 숫자로 변환
+                    if (existing) await db.collection('siteSettings').doc(existing.id).update(data);
+                    else await db.collection('siteSettings').add(data);
+                    alert('저장되었습니다!'); loadData();
+                } catch (error) { alert('저장 실패: ' + error.message); }
             };
 
             const handleGoalSubmit = async (e) => {
                 e.preventDefault();
                 try {
                     const existing = goals.find(g => g.yearMonth === goalForm.yearMonth);
-                    if (existing) {
-                        await db.collection('goals').doc(existing.id).update(goalForm);
-                    } else {
-                        await db.collection('goals').add(goalForm);
-                    }
-                    alert('저장되었습니다!');
-                    loadData();
-                } catch (error) {
-                    alert('저장 실패: ' + error.message);
-                }
+                     const data = { // 숫자로 변환
+                        ...goalForm,
+                        targetHires: Number(goalForm.targetHires), targetSaramin: Number(goalForm.targetSaramin),
+                        targetJobkorea: Number(goalForm.targetJobkorea), targetIncruit: Number(goalForm.targetIncruit)
+                    };
+                    if (existing) await db.collection('goals').doc(existing.id).update(data);
+                    else await db.collection('goals').add(data);
+                    alert('저장되었습니다!'); loadData();
+                } catch (error) { alert('저장 실패: ' + error.message); }
             };
 
             return (
-                // [수정] 모바일 패딩 p-4
                 <div className="p-4 md:p-8">
                     <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-8">설정</h2>
-
                     <div className="flex space-x-2 mb-6">
-                        <button
-                            onClick={() => setActiveTab('sites')}
-                            className={`px-4 md:px-6 py-3 rounded-lg transition-colors ${
-                                activeTab === 'sites'
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                            }`}
-                        >
-                            사이트 이용료
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('goals')}
-                            className={`px-4 md:px-6 py-3 rounded-lg transition-colors ${
-                                activeTab === 'goals'
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                            }`}
-                        >
-                            목표 설정
-                        </button>
+                        <button onClick={() => setActiveTab('sites')} className={`btn-tab ${activeTab === 'sites' ? 'btn-tab-active' : ''}`}>사이트 이용료</button>
+                        <button onClick={() => setActiveTab('goals')} className={`btn-tab ${activeTab === 'goals' ? 'btn-tab-active' : ''}`}>목표 설정</button>
                     </div>
 
                     {activeTab === 'sites' && (
                         <div className="bg-white rounded-xl shadow-lg p-6">
                             <h3 className="text-xl font-semibold mb-6">사이트 이용료 설정</h3>
                             <form onSubmit={handleSiteSubmit} className="space-y-4 max-w-2xl">
-                                {/* (폼 내용은 동일) */}
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">채용 사이트</label>
-                                    <select
-                                        value={siteForm.site}
-                                        onChange={(e) => {
-                                            const site = e.target.value;
-                                            const existing = siteSettings.find(s => s.site === site);
-                                            if (existing) {
-                                                setSiteForm(existing);
-                                            } else {
-                                                setSiteForm({
-                                                    site,
-                                                    monthlyCost: 0,
-                                                    quarterlyCost: 0,
-                                                    startDate: ''
-                                                });
-                                            }
-                                        }}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                    >
-                                        <option>사람인</option>
-                                        <option>잡코리아</option>
-                                        <option>인크루트</option>
-                                    </select>
+                                    <label className="label-style">채용 사이트</label>
+                                    <Select value={siteForm.site} onChange={(e) => {
+                                        const site = e.target.value;
+                                        const existing = siteSettings.find(s => s.site === site);
+                                        setSiteForm(existing || { site, monthlyCost: 0, quarterlyCost: 0, startDate: '' });
+                                    }}> <option>사람인</option> <option>잡코리아</option> <option>인크루트</option> </Select>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">월 이용료 (원)</label>
-                                    <input
-                                        type="number"
-                                        value={siteForm.monthlyCost}
-                                        onChange={(e) => setSiteForm({...siteForm, monthlyCost: parseInt(e.target.value) || 0})}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">분기 이용료 (원)</label>
-                                    <input
-                                        type="number"
-                                        value={siteForm.quarterlyCost}
-                                        onChange={(e) => setSiteForm({...siteForm, quarterlyCost: parseInt(e.target.value) || 0})}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">과금 시작일</label>
-                                    <input
-                                        type="date"
-                                        value={siteForm.startDate}
-                                        onChange={(e) => setSiteForm({...siteForm, startDate: e.target.value})}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                    />
-                                </div>
-                                <button
-                                    type="submit"
-                                    className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors"
-                                >
-                                    저장
-                                </button>
+                                <div><label className="label-style">월 이용료 (원)</label><Input type="number" value={siteForm.monthlyCost} onChange={(e) => setSiteForm({...siteForm, monthlyCost: e.target.value})} /></div>
+                                <div><label className="label-style">분기 이용료 (원)</label><Input type="number" value={siteForm.quarterlyCost} onChange={(e) => setSiteForm({...siteForm, quarterlyCost: e.target.value})} /></div>
+                                <div><label className="label-style">과금 시작일</label><Input type="date" value={siteForm.startDate} onChange={(e) => setSiteForm({...siteForm, startDate: e.target.value})} /></div>
+                                <Button type="submit" variant="primary" className="w-full">저장</Button>
                             </form>
-
                             <div className="mt-8">
                                 <h4 className="font-semibold mb-4">현재 설정</h4>
                                 <div className="space-y-3">
                                     {siteSettings.map(setting => (
                                         <div key={setting.id} className="border border-gray-200 rounded-lg p-4">
-                                            <div className="flex justify-between items-start">
-                                                <div>
-                                                    <h5 className="font-semibold text-lg">{setting.site}</h5>
-                                                    <p className="text-sm text-gray-600 mt-1">
-                                                        월 {setting.monthlyCost?.toLocaleString()}원 / 
-                                                        분기 {setting.quarterlyCost?.toLocaleString()}원
-                                                    </p>
-                                                    {setting.startDate && (
-                                                        <p className="text-sm text-gray-600">
-                                                            시작일: {setting.startDate}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </div>
+                                            <h5 className="font-semibold text-lg">{setting.site}</h5>
+                                            <p className="text-sm text-gray-600 mt-1">월 {setting.monthlyCost?.toLocaleString()}원 / 분기 {setting.quarterlyCost?.toLocaleString()}원</p>
+                                            {setting.startDate && <p className="text-sm text-gray-600">시작일: {setting.startDate}</p>}
                                         </div>
                                     ))}
                                 </div>
@@ -2284,100 +1624,32 @@
                             <h3 className="text-xl font-semibold mb-6">월별 목표 설정</h3>
                             <form onSubmit={handleGoalSubmit} className="space-y-4 max-w-2xl">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">년월</label>
-                                    <input
-                                        type="month"
-                                        value={goalForm.yearMonth}
-                                        onChange={(e) => {
-                                            const yearMonth = e.target.value;
-                                            const existing = goals.find(g => g.yearMonth === yearMonth);
-                                            if (existing) {
-                                                setGoalForm(existing);
-                                            } else {
-                                                setGoalForm({
-                                                    yearMonth,
-                                                    targetHires: 0,
-                                                    targetSaramin: 0,
-                                                    targetJobkorea: 0,
-                                                    targetIncruit: 0
-                                                });
-                                            }
-                                        }}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                        required
-                                    />
+                                    <label className="label-style">년월</label>
+                                    <Input type="month" value={goalForm.yearMonth} onChange={(e) => {
+                                        const yearMonth = e.target.value;
+                                        const existing = goals.find(g => g.yearMonth === yearMonth);
+                                        setGoalForm(existing || { yearMonth, targetHires: 0, targetSaramin: 0, targetJobkorea: 0, targetIncruit: 0 });
+                                    }} required />
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">월 채용 목표 인원</label>
-                                    <input
-                                        type="number"
-                                        value={goalForm.targetHires}
-                                        onChange={(e) => setGoalForm({...goalForm, targetHires: parseInt(e.target.value) || 0})}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                    />
-                                </div>
-                                {/* [수정] 반응형 그리드 */}
+                                <div><label className="label-style">월 채용 목표 인원</label><Input type="number" value={goalForm.targetHires} onChange={(e) => setGoalForm({...goalForm, targetHires: e.target.value})} /></div>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">사람인 목표</label>
-                                        <input
-                                            type="number"
-                                            value={goalForm.targetSaramin}
-                                            onChange={(e) => setGoalForm({...goalForm, targetSaramin: parseInt(e.target.value) || 0})}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">잡코리아 목표</label>
-                                        <input
-                                            type="number"
-                                            value={goalForm.targetJobkorea}
-                                            onChange={(e) => setGoalForm({...goalForm, targetJobkorea: parseInt(e.target.value) || 0})}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">인크루트 목표</label>
-                                        <input
-                                            type="number"
-                                            value={goalForm.targetIncruit}
-                                            onChange={(e) => setGoalForm({...goalForm, targetIncruit: parseInt(e.target.value) || 0})}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                        />
-                                    </div>
+                                    <div><label className="label-style">사람인 목표</label><Input type="number" value={goalForm.targetSaramin} onChange={(e) => setGoalForm({...goalForm, targetSaramin: e.target.value})} /></div>
+                                    <div><label className="label-style">잡코리아 목표</label><Input type="number" value={goalForm.targetJobkorea} onChange={(e) => setGoalForm({...goalForm, targetJobkorea: e.target.value})} /></div>
+                                    <div><label className="label-style">인크루트 목표</label><Input type="number" value={goalForm.targetIncruit} onChange={(e) => setGoalForm({...goalForm, targetIncruit: e.target.value})} /></div>
                                 </div>
-                                <button
-                                    type="submit"
-                                    className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors"
-                                >
-                                    저장
-                                </button>
+                                <Button type="submit" variant="primary" className="w-full">저장</Button>
                             </form>
-
                             <div className="mt-8">
                                 <h4 className="font-semibold mb-4">설정된 목표</h4>
                                 <div className="space-y-3">
                                     {goals.sort((a,b) => b.yearMonth.localeCompare(a.yearMonth)).map(goal => (
                                         <div key={goal.id} className="border border-gray-200 rounded-lg p-4">
                                             <h5 className="font-semibold text-lg mb-2">{goal.yearMonth}</h5>
-                                            {/* [수정] 반응형 그리드 */}
                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                                                <div>
-                                                    <span className="text-gray-600">총 목표</span>
-                                                    <p className="text-xl font-bold text-blue-600">{goal.targetHires}명</p>
-                                                </div>
-                                                <div>
-                                                    <span className="text-gray-600">사람인</span>
-                                                    <p className="text-xl font-bold">{goal.targetSaramin}명</p>
-                                                </div>
-                                                <div>
-                                                    <span className="text-gray-600">잡코리아</span>
-                                                    <p className="text-xl font-bold">{goal.targetJobkorea}명</p>
-                                                </div>
-                                                <div>
-                                                    <span className="text-gray-600">인크루트</span>
-                                                    <p className="text-xl font-bold">{goal.targetIncruit}명</p>
-                                                </div>
+                                                <div><span className="text-gray-600">총 목표</span><p className="goal-value text-blue-600">{goal.targetHires}명</p></div>
+                                                <div><span className="text-gray-600">사람인</span><p className="goal-value">{goal.targetSaramin}명</p></div>
+                                                <div><span className="text-gray-600">잡코리아</span><p className="goal-value">{goal.targetJobkorea}명</p></div>
+                                                <div><span className="text-gray-600">인크루트</span><p className="goal-value">{goal.targetIncruit}명</p></div>
                                             </div>
                                         </div>
                                     ))}
@@ -2389,9 +1661,47 @@
             );
         };
 
-        ReactDOM.render(<App />, document.getElementById('root'));
+        // --- Helper Components & Styles ---
+        const Input = ({ className, ...props }) => <input className={`input-style ${className}`} {...props} />;
+        const Select = ({ className, ...props }) => <select className={`input-style bg-white ${className}`} {...props} />;
+        const Textarea = ({ className, ...props }) => <textarea className={`input-style ${className}`} {...props} />;
+        const Button = ({ variant = 'primary', className, children, ...props }) => {
+            const baseStyle = "px-6 py-2 rounded-lg font-semibold transition-colors shadow disabled:opacity-50 text-sm md:text-base md:py-3"; // 패딩 조정
+            const variants = { primary: "bg-blue-600 text-white hover:bg-blue-700", secondary: "bg-gray-300 text-gray-700 hover:bg-gray-400", danger: "bg-red-600 text-white hover:bg-red-700" };
+            return <button className={`${baseStyle} ${variants[variant]} ${className}`} {...props}>{children}</button>;
+        };
+
+        // 전역 스타일 추가 (input, label, table, badge, tab 등)
+        const GlobalStyles = () => (
+            <style>{`
+                .input-style { display: block; width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; box-shadow: inset 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
+                .input-style:focus { outline: 2px solid transparent; outline-offset: 2px; border-color: #3b82f6; box-shadow: 0 0 0 2px #bfdbfe; }
+                .label-style { display: block; margin-bottom: 0.25rem; font-size: 0.875rem; font-weight: 500; color: #374151; }
+                .btn-primary { background-color: #2563eb; color: white; padding: 0.6rem 1.2rem; border-radius: 0.375rem; font-weight: 600; transition: background-color 0.2s; box-shadow: 0 1px 3px 0 rgba(0,0,0,.1), 0 1px 2px 0 rgba(0,0,0,.06); }
+                .btn-primary:hover { background-color: #1d4ed8; } .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+                .btn-secondary { background-color: #d1d5db; color: #374151; padding: 0.6rem 1.2rem; border-radius: 0.375rem; font-weight: 600; transition: background-color 0.2s; box-shadow: 0 1px 3px 0 rgba(0,0,0,.1), 0 1px 2px 0 rgba(0,0,0,.06); }
+                .btn-secondary:hover { background-color: #9ca3af; }
+                .th-style { padding: 0.75rem 1rem; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; }
+                .td-style { padding: 0.75rem 1rem; font-size: 0.875rem; }
+                .badge-blue { background-color: #dbeafe; color: #1e40af; padding: 0.25rem 0.5rem; font-size: 0.75rem; font-weight: 600; border-radius: 9999px; }
+                .badge-green { background-color: #d1fae5; color: #065f46; padding: 0.25rem 0.5rem; font-size: 0.75rem; font-weight: 600; border-radius: 9999px; }
+                .badge-yellow { background-color: #fef3c7; color: #92400e; padding: 0.25rem 0.5rem; font-size: 0.75rem; font-weight: 600; border-radius: 9999px; }
+                .badge-red { background-color: #fee2e2; color: #991b1b; padding: 0.25rem 0.5rem; font-size: 0.75rem; font-weight: 600; border-radius: 9999px; }
+                .badge-gray { background-color: #f3f4f6; color: #374151; padding: 0.25rem 0.5rem; font-size: 0.75rem; font-weight: 600; border-radius: 9999px; }
+                .badge-sm { padding: 0.25rem 0.75rem; font-size: 0.875rem; font-weight: 600; border-radius: 9999px; } /* 효율성 점수용 */
+                .btn-tab { padding: 0.75rem 1.5rem; border-radius: 0.375rem; transition: background-color 0.2s, color 0.2s; }
+                .btn-tab-active { background-color: #2563eb; color: white; }
+                .stat-item { display: flex; justify-content: space-between; align-items: center; padding-bottom: 0.5rem; border-bottom: 1px solid #e5e7eb; }
+                .stat-label { color: #6b7280; } .stat-value { font-size: 1.125rem; font-weight: 700; }
+                .rate-value { font-size: 1.25rem; font-weight: 700; } /* 효율성 분석용 */
+                .goal-value { font-size: 1.25rem; font-weight: 700; } /* 목표 설정용 */
+                .btn-period { padding: 0.5rem 1rem; border-radius: 0.375rem; transition: background-color 0.2s, color 0.2s; background-color: #f3f4f6; color: #374151; }
+                .btn-period:hover { background-color: #e5e7eb; }
+                .btn-period-active { background-color: #2563eb; color: white; }
+            `}</style>
+        );
+
+        ReactDOM.render(<> <GlobalStyles /> <App /> </>, document.getElementById('root'));
     </script>
 </body>
 </html>
-
-
