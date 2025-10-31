@@ -15,6 +15,8 @@ const SiteSummary = ({ jobs, dailyRecords, applicants, filter }) => {
         const totals = { jobs: siteJobs.length, views: totalViews, applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 };
         siteApplicants.forEach(a => {
             totals.applications++;
+            // ✅ '컨택' 상태 집계 추가
+            if (a.status === '컨택') totals.contacts++;
             if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++;
             if (['합격', '입사'].includes(a.status)) totals.offers++;
             if (a.status === '입사') totals.hires++;
@@ -34,7 +36,7 @@ const SiteSummary = ({ jobs, dailyRecords, applicants, filter }) => {
                         <div className="stat-item"><span className="stat-label">컨택:</span><span className="font-semibold">{data.contacts}</span></div>
                         <div className="stat-item"><span className="stat-label">면접:</span><span className="font-semibold">{data.interviews}</span></div>
                         <div className="stat-item"><span className="stat-label">합격:</span><span className="font-semibold">{data.offers}</span></div>
-                        <div className="flex justify-between col-span-2 border-t pt-2 mt-1"><span className="text-gray-600 font-bold">입과:</span><span className="font-bold text-lg text-blue-600">{data.hires}명</span></div>
+                        <div className="flex justify-between col-span-2 border-t pt-2 mt-1"><span className="text-gray-600 font-bold">입사:</span><span className="font-bold text-lg text-blue-600">{data.hires}명</span></div>
                     </div>
                 </div>
             ))}
