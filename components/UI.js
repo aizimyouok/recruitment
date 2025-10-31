@@ -15,7 +15,14 @@ const Button = ({ variant = 'primary', className, children, ...props }) => {
 
 // 3. 지원자 상태 배지
 const ApplicantStatusBadge = ({ status }) => {
-    const colors = { '지원': 'badge-blue', '서류검토': 'badge-yellow', '면접': 'bg-purple-100 text-purple-800', '합격': 'badge-green', '입사': 'bg-emerald-100 text-emerald-800', '불합격': 'badge-red' };
+    const colors = { 
+        '지원': 'badge-blue', 
+        '컨택': 'badge-yellow',  // ✅ '서류검토' → '컨택'으로 변경
+        '면접': 'bg-purple-100 text-purple-800', 
+        '합격': 'badge-green', 
+        '입사': 'bg-emerald-100 text-emerald-800', 
+        '불합격': 'badge-red' 
+    };
     return <span className={`px-2 py-1 text-xs font-semibold rounded-full ${colors[status] || 'badge-gray'}`}>{status || '미지정'}</span>;
 };
 
