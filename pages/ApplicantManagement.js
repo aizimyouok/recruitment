@@ -10,7 +10,7 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
     const [searchTerm, setSearchTerm] = useState('');
 
     const activeJobs = useMemo(() => jobs.filter(j => j.status === '진행중'), [jobs]);
-    const applicantStatuses = ['지원', '서류검토', '면접', '합격', '입사', '불합격'];
+    const applicantStatuses = ['지원', '컨택', '면접', '합격', '입사', '불합격']; // ✅ '서류검토' → '컨택'으로 변경
 
     useEffect(() => {
         if (!editingApplicant && activeJobs.length > 0 && !formData.appliedJobId) {
@@ -30,8 +30,13 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
             const data = { ...formData, age: Number(formData.age) || null, updatedAt: new Date().toISOString() };
             if (editingApplicant) await db.collection('applicants').doc(editingApplicant.id).update(data);
             else await db.collection('applicants').add({ ...data, createdAt: new Date().toISOString() });
-            resetForm(); loadData(); alert('저장되었습니다!');
-        } catch (error) { alert('저장 실패: ' + error.message); }
+            resetForm(); loadData(); 
+            if (window.showToast) window.showToast('저장되었습니다!', 'success');
+            else alert('저장되었습니다!');
+        } catch (error) { 
+            if (window.showToast) window.showToast('저장 실패: ' + error.message, 'error');
+            else alert('저장 실패: ' + error.message); 
+        }
     };
 
     const handleEdit = (applicant) => {
@@ -42,8 +47,16 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
 
     const handleDelete = async (id) => {
         if (confirm('정말 삭제하시겠습니까? 지원자 정보가 영구적으로 삭제됩니다.')) {
-            try { await db.collection('applicants').doc(id).delete(); loadData(); alert('삭제되었습니다!'); }
-            catch (error) { alert('삭제 실패: ' + error.message); }
+            try { 
+                await db.collection('applicants').doc(id).delete(); 
+                loadData(); 
+                if (window.showToast) window.showToast('삭제되었습니다!', 'success');
+                else alert('삭제되었습니다!');
+            }
+            catch (error) { 
+                if (window.showToast) window.showToast('삭제 실패: ' + error.message, 'error');
+                else alert('삭제 실패: ' + error.message); 
+            }
         }
     };
 
@@ -53,8 +66,14 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
     };
 
     const handleStatusChange = async (applicantId, newStatus) => {
-        try { await db.collection('applicants').doc(applicantId).update({ status: newStatus, updatedAt: new Date().toISOString() }); loadData(); }
-        catch (error) { alert('상태 변경 실패: ' + error.message); }
+        try { 
+            await db.collection('applicants').doc(applicantId).update({ status: newStatus, updatedAt: new Date().toISOString() }); 
+            loadData(); 
+        }
+        catch (error) { 
+            if (window.showToast) window.showToast('상태 변경 실패: ' + error.message, 'error');
+            else alert('상태 변경 실패: ' + error.message); 
+        }
     };
 
     const filteredApplicants = useMemo(() => {
