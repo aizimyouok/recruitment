@@ -66,15 +66,28 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
     const stats = useMemo(() => {
         const activeJobs = filteredData.filteredJobs.filter(j => j.status === '진행중');
         const totalViews = filteredData.filteredRecords.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
-        const totals = { applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 }; // ✅ contacts 추가
+        const totals = { applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 };
+        
+        // --- ⬇️ 수정된 누적 집계 로직 ⬇️ ---
         filteredData.filteredApplicants.forEach(a => {
+            // '불합격' 상태가 아닌 경우에만 집계 (또는 모든 지원자 집계 후 단계별 누적)
+            // '지원'은 모든 지원자를 의미
             totals.applications++;
-            // ✅ '컨택' 상태 집계 추가
-            if (a.status === '컨택') totals.contacts++;
-            if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++;
-            if (['합격', '입사'].includes(a.status)) totals.offers++;
-            if (a.status === '입사') totals.hires++;
+
+            if (['컨택', '면접', '합격', '입사'].includes(a.status)) {
+                totals.contacts++;
+            }
+            if (['면접', '합격', '입사'].includes(a.status)) {
+                totals.interviews++;
+            }
+            if (['합격', '입사'].includes(a.status)) {
+                totals.offers++;
+            }
+            if (a.status === '입사') {
+                totals.hires++;
+            }
         });
+        // --- ⬆️ 수정된 누적 집계 로직 ⬆️ ---
 
         const conversionRate = totals.applications > 0 ? ((totals.hires / totals.applications) * 100).toFixed(1) : 0;
 
@@ -103,18 +116,30 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
     // 레이더 차트 데이터
     const radarChartData = useMemo(() => {
         const sites = ['사람인', '잡코리아', '인크루트'];
-        const labels = ['조회수', '지원자', '면접', '합격', '입사'];
+        const labels = ['조회수', '지원자', '컨택', '면접', '합격', '입사']; // '컨택' 추가
         const datasets = sites.map((site, index) => {
             const siteJobs = jobs.filter(j => j.site === site);
             const jobIds = siteJobs.map(j => j.id);
             const siteRecords = dailyRecords.filter(r => jobIds.includes(r.jobId));
             const siteApplicants = applicants.filter(a => jobIds.includes(a.appliedJobId));
+            
             const views = siteRecords.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
             const applications = siteApplicants.length;
-            const interviews = siteApplicants.filter(a => ['면접', '합격', '입사'].includes(a.status)).length;
-            const offers = siteApplicants.filter(a => ['합격', '입사'].includes(a.status)).length;
-            const hires = siteApplicants.filter(a => a.status === '입사').length;
-            const data = [views, applications, interviews, offers, hires];
+            
+            // --- ⬇️ 수정된 누적 집계 로직 (레이더 차트용) ⬇️ ---
+            let contacts = 0;
+            let interviews = 0;
+            let offers = 0;
+            let hires = 0;
+            siteApplicants.forEach(a => {
+                if (['컨택', '면접', '합격', '입사'].includes(a.status)) contacts++;
+                if (['면접', '합격', '입사'].includes(a.status)) interviews++;
+                if (['합격', '입사'].includes(a.status)) offers++;
+                if (a.status === '입사') hires++;
+            });
+            const data = [views, applications, contacts, interviews, offers, hires]; // 'contacts' 추가
+            // --- ⬆️ 수정된 누적 집계 로직 (레이더 차트용) ⬆️ ---
+
             const colors = ['rgba(59, 130, 246, 0.2)', 'rgba(16, 185, 129, 0.2)', 'rgba(245, 158, 11, 0.2)'];
             const borderColors = ['rgb(59, 130, 246)', 'rgb(16, 185, 129)', 'rgb(245, 158, 11)'];
             return {
