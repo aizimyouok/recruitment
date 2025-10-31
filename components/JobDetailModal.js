@@ -9,6 +9,8 @@ const JobDetailModal = ({ job, applicants, onClose }) => {
         const trend = {};
         jobApplicants.forEach(a => {
             totals.applications++;
+            // ✅ '컨택' 상태 집계 추가
+            if (a.status === '컨택') totals.contacts++;
             if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++;
             if (['합격', '입사'].includes(a.status)) totals.offers++;
             if (a.status === '입사') totals.hires++;
