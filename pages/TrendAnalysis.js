@@ -17,9 +17,35 @@ const TrendAnalysis = ({ jobs, dailyRecords, applicants }) => {
             filteredRecords = filteredRecords.filter(r => r.date >= startStr && r.date <= endStr);
             filteredApplicants = filteredApplicants.filter(a => a.appliedDate >= startStr && a.appliedDate <= endStr);
         }
+        
         const dateMap = {};
-        filteredRecords.forEach(record => { if (!dateMap[record.date]) dateMap[record.date] = { date: record.date, views: 0, applications: 0, interviews: 0, offers: 0, hires: 0 }; dateMap[record.date].views += record.viewsIncrease || 0; });
-        filteredApplicants.forEach(applicant => { const date = applicant.appliedDate; if (!dateMap[date]) dateMap[date] = { date: date, views: 0, applications: 0, interviews: 0, offers: 0, hires: 0 }; dateMap[date].applications++; if (['면접', '합격', '입사'].includes(applicant.status)) dateMap[date].interviews++; if (['합격', '입사'].includes(applicant.status)) dateMap[date].offers++; if (applicant.status === '입사') dateMap[date].hires++; });
+        
+        // 'contacts' 필드 추가
+        filteredRecords.forEach(record => { if (!dateMap[record.date]) dateMap[record.date] = { date: record.date, views: 0, applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 }; dateMap[record.date].views += record.viewsIncrease || 0; });
+        
+        // --- ⬇️ 수정된 누적 집계 로직 ⬇️ ---
+        filteredApplicants.forEach(applicant => { 
+            const date = applicant.appliedDate; 
+            // 'contacts' 필드 추가
+            if (!dateMap[date]) dateMap[date] = { date: date, views: 0, applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 }; 
+            
+            dateMap[date].applications++; 
+            
+            if (['컨택', '면접', '합격', '입사'].includes(applicant.status)) {
+                dateMap[date].contacts++;
+            }
+            if (['면접', '합격', '입사'].includes(applicant.status)) {
+                dateMap[date].interviews++;
+            }
+            if (['합격', '입사'].includes(applicant.status)) {
+                dateMap[date].offers++;
+            }
+            if (applicant.status === '입사') {
+                dateMap[date].hires++;
+            }
+        });
+        // --- ⬆️ 수정된 누적 집계 로직 ⬆️ ---
+
         return Object.values(dateMap).sort((a, b) => a.date.localeCompare(b.date));
     }, [dailyRecords, applicants, period, startDate, endDate]);
 
@@ -28,9 +54,17 @@ const TrendAnalysis = ({ jobs, dailyRecords, applicants }) => {
         return sites.map(site => { const siteJobs = jobs.filter(j => j.site === site); const jobIds = siteJobs.map(j => j.id); const siteApplicants = applicants.filter(a => jobIds.includes(a.appliedJobId)); return { site, applications: siteApplicants.length }; });
     }, [jobs, applicants]);
 
+    // '컨택', '합격'을 차트에 추가
     const lineChartData = {
         labels: trendData.map(d => d.date),
-        datasets: [ { label: '조회수', data: trendData.map(d => d.views), borderColor: 'rgb(59, 130, 246)', backgroundColor: 'rgba(59, 130, 246, 0.1)', tension: 0.4 }, { label: '지원자', data: trendData.map(d => d.applications), borderColor: 'rgb(16, 185, 129)', backgroundColor: 'rgba(16, 185, 129, 0.1)', tension: 0.4 }, { label: '면접', data: trendData.map(d => d.interviews), borderColor: 'rgb(139, 92, 246)', backgroundColor: 'rgba(139, 92, 246, 0.1)', tension: 0.4 }, { label: '입사자', data: trendData.map(d => d.hires), borderColor: 'rgb(245, 158, 11)', backgroundColor: 'rgba(245, 158, 11, 0.1)', tension: 0.4 } ]
+        datasets: [ 
+            { label: '조회수', data: trendData.map(d => d.views), borderColor: 'rgb(59, 130, 246)', backgroundColor: 'rgba(59, 130, 246, 0.1)', tension: 0.4 }, 
+            { label: '지원자', data: trendData.map(d => d.applications), borderColor: 'rgb(16, 185, 129)', backgroundColor: 'rgba(16, 185, 129, 0.1)', tension: 0.4 }, 
+            { label: '컨택', data: trendData.map(d => d.contacts), borderColor: 'rgb(234, 179, 8)', backgroundColor: 'rgba(234, 179, 8, 0.1)', tension: 0.4 }, 
+            { label: '면접', data: trendData.map(d => d.interviews), borderColor: 'rgb(139, 92, 246)', backgroundColor: 'rgba(139, 92, 246, 0.1)', tension: 0.4 },
+            { label: '합격', data: trendData.map(d => d.offers), borderColor: 'rgb(217, 70, 239)', backgroundColor: 'rgba(217, 70, 239, 0.1)', tension: 0.4 },
+            { label: '입사자', data: trendData.map(d => d.hires), borderColor: 'rgb(245, 158, 11)', backgroundColor: 'rgba(245, 158, 11, 0.1)', tension: 0.4 } 
+        ]
     };
     const pieChartData = { labels: siteTrendData.map(d => d.site), datasets: [{ data: siteTrendData.map(d => d.applications), backgroundColor: ['rgba(59, 130, 246, 0.8)', 'rgba(16, 185, 129, 0.8)', 'rgba(245, 158, 11, 0.8)'] }] };
 
