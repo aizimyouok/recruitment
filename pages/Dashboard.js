@@ -12,12 +12,12 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
         const saved = localStorage.getItem('dashboardWidgetSettings');
         return saved ? JSON.parse(saved) : { kpi: true, conversion: true, siteSummary: true, siteChart: true };
     });
-    const [showSiteChart, setShowSiteChart] = useState(widgetSettings.siteChart); // 초기값 설정
+    const [showSiteChart, setShowSiteChart] = useState(widgetSettings.siteChart);
 
     const handleSaveWidgetSettings = (newSettings) => {
         setWidgetSettings(newSettings);
         localStorage.setItem('dashboardWidgetSettings', JSON.stringify(newSettings));
-        setShowSiteChart(newSettings.siteChart); // 상태 업데이트
+        setShowSiteChart(newSettings.siteChart);
         setShowSettingsModal(false);
     };
 
@@ -66,9 +66,11 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
     const stats = useMemo(() => {
         const activeJobs = filteredData.filteredJobs.filter(j => j.status === '진행중');
         const totalViews = filteredData.filteredRecords.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
-        const totals = { applications: 0, interviews: 0, offers: 0, hires: 0 };
+        const totals = { applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 }; // ✅ contacts 추가
         filteredData.filteredApplicants.forEach(a => {
             totals.applications++;
+            // ✅ '컨택' 상태 집계 추가
+            if (a.status === '컨택') totals.contacts++;
             if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++;
             if (['합격', '입사'].includes(a.status)) totals.offers++;
             if (a.status === '입사') totals.hires++;
@@ -182,6 +184,7 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                     <div className="flex items-center justify-around flex-wrap gap-4">
                         <ConversionStep label="조회" value={stats.views} /> <Icon name="chevron-right" className="text-gray-400" />
                         <ConversionStep label="지원" value={stats.applications} /> <Icon name="chevron-right" className="text-gray-400" />
+                        <ConversionStep label="컨택" value={stats.contacts} /> <Icon name="chevron-right" className="text-gray-400" />
                         <ConversionStep label="면접" value={stats.interviews} /> <Icon name="chevron-right" className="text-gray-400" />
                         <ConversionStep label="합격" value={stats.offers} /> <Icon name="chevron-right" className="text-gray-400" />
                         <ConversionStep label="입사" value={stats.hires} />
