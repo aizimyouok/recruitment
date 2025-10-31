@@ -11,6 +11,9 @@ const Sidebar = ({ currentPage, setCurrentPage, user, isSidebarOpen, setIsSideba
         { id: 'compare', name: '사이트 비교', icon: 'git-compare' },
         { id: 'efficiency', name: '효율성 분석', icon: 'trending-up' },
         { id: 'trends', name: '트렌드 분석', icon: 'line-chart' },
+        // --- ⬇️ 추가된 메뉴 ⬇️ ---
+        { id: 'report', name: '리포트', icon: 'printer' },
+        // --- ⬆️ 추가된 메뉴 ⬆️ ---
         { id: 'settings', name: '설정', icon: 'settings' }
     ];
 
