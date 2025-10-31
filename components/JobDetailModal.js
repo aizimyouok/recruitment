@@ -7,15 +7,29 @@ const JobDetailModal = ({ job, applicants, onClose }) => {
         const jobApplicants = applicants.filter(a => a.appliedJobId === job.id);
         const totals = { applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 };
         const trend = {};
+
+        // --- ⬇️ 수정된 누적 집계 로직 ⬇️ ---
         jobApplicants.forEach(a => {
-            totals.applications++;
-            // ✅ '컨택' 상태 집계 추가
-            if (a.status === '컨택') totals.contacts++;
-            if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++;
-            if (['합격', '입사'].includes(a.status)) totals.offers++;
-            if (a.status === '입사') totals.hires++;
+            totals.applications++; // 모든 지원자
+
+            if (['컨택', '면접', '합격', '입사'].includes(a.status)) {
+                totals.contacts++;
+            }
+            if (['면접', '합격', '입사'].includes(a.status)) {
+                totals.interviews++;
+            }
+            if (['합격', '입사'].includes(a.status)) {
+                totals.offers++;
+            }
+            if (a.status === '입사') {
+                totals.hires++;
+            }
+            
+            // 일별 지원자 트렌드는 '지원' 시점을 기준으로 함
             trend[a.appliedDate] = (trend[a.appliedDate] || 0) + 1;
         });
+        // --- ⬆️ 수정된 누적 집계 로직 ⬆️ ---
+
         const conversionRate = totals.applications > 0 ? ((totals.hires / totals.applications) * 100).toFixed(1) : 0;
         const sortedTrend = Object.entries(trend).sort((a, b) => a[0].localeCompare(b[0]));
         return { ...totals, conversionRate, trendData: sortedTrend, applicantList: jobApplicants };
@@ -40,7 +54,11 @@ const JobDetailModal = ({ job, applicants, onClose }) => {
                 </div>
                 <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
                     <h4 className="text-xl font-semibold mb-4">단계별 상세</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4"><ConversionStep label="컨택" value={jobStats.contacts} /><ConversionStep label="면접" value={jobStats.interviews} /><ConversionStep label="합격" value={jobStats.offers} /></div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <ConversionStep label="컨택" value={jobStats.contacts} />
+                        <ConversionStep label="면접" value={jobStats.interviews} />
+                        <ConversionStep label="합격" value={jobStats.offers} />
+                    </div>
                 </div>
                 <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
                      <h4 className="text-xl font-semibold mb-4">일별 지원자 트렌드</h4>
