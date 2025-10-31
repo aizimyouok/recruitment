@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>채용 현황 관리 시스템</title>
-    <!-- React 및 라이브러리 -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -14,7 +13,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     
-    <!-- 스타일 -->
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
@@ -48,15 +46,40 @@
             height: 400px; /* 필요에 따라 조절 */
             width: 100%;
         }
+        
+        /* --- ⬇️ 추가된 인쇄 스타일 ⬇️ --- */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            .report-print-area, .report-print-area * {
+                visibility: visible;
+            }
+            .report-print-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                padding: 1.5rem; /* 인쇄 여백 */
+            }
+            .no-print {
+                display: none !important;
+            }
+            /* 차트가 인쇄될 수 있도록 */
+            canvas {
+                max-width: 100% !important;
+            }
+            /* 페이지 나뉨 방지 (선택적) */
+            .report-section {
+                page-break-inside: avoid;
+            }
+        }
+        /* --- ⬆️ 추가된 인쇄 스타일 ⬆️ --- */
     </style>
 </head>
 <body class="bg-gray-50">
     <div id="root"></div>
 
-    <!-- 
-      1. 공통 컴포넌트 로드 (components)
-      (의존성 순서에 맞게 정렬)
-    -->
     <script type="text/babel" src="components/Icon.js"></script>
     <script type="text/babel" src="components/UI.js"></script> 
     <script type="text/babel" src="components/ChartComponent.js"></script>
@@ -68,10 +91,6 @@
     <script type="text/babel" src="components/JobDetailModal.js"></script>
     <script type="text/babel" src="components/SiteSummary.js"></script>
 
-    <!-- 
-      2. 페이지 컴포넌트 로드 (pages)
-      (페이지 간 의존성은 없으나, Dashboard를 맨 위에 두는 것이 일반적)
-    -->
     <script type="text/babel" src="pages/Dashboard.js"></script>
     <script type="text/babel" src="pages/JobManagement.js"></script>
     <script type="text/babel" src="pages/ApplicantManagement.js"></script>
@@ -79,11 +98,10 @@
     <script type="text/babel" src="pages/SiteComparison.js"></script>
     <script type="text/babel" src="pages/EfficiencyAnalysis.js"></script>
     <script type="text/babel" src="pages/TrendAnalysis.js"></script>
+    
+    <script type="text/babel" src="pages/Report.js"></script>
     <script type="text/babel" src="pages/Settings.js"></script>
 
-    <!-- 
-      3. 메인 애플리케이션 스크립트
-    -->
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
@@ -259,6 +277,11 @@
                         {currentPage === 'compare' && <SiteComparison jobs={jobs} applicants={applicants} dailyRecords={dailyRecords} />}
                         {currentPage === 'efficiency' && <EfficiencyAnalysis jobs={jobs} applicants={applicants} siteSettings={siteSettings} />}
                         {currentPage === 'trends' && <TrendAnalysis jobs={jobs} dailyRecords={dailyRecords} applicants={applicants} />}
+                        
+                        {/* --- ⬇️ 추가된 라우팅 ⬇️ --- */}
+                        {currentPage === 'report' && <Report jobs={jobs} dailyRecords={dailyRecords} applicants={applicants} siteSettings={siteSettings} />}
+                        {/* --- ⬆️ 추가된 라우팅 ⬆️ --- */}
+
                         {currentPage === 'settings' && <Settings siteSettings={siteSettings} goals={goals} loadData={loadData} />}
                     </div>
                 </div>
@@ -273,4 +296,3 @@
     </script>
 </body>
 </html>
-
