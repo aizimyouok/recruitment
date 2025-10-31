@@ -9,16 +9,44 @@ const EfficiencyAnalysis = ({ jobs, applicants, siteSettings }) => {
             const siteJobs = jobs.filter(j => j.site === site); const jobIds = siteJobs.map(j => j.id); const settings = siteSettings.find(s => s.site === site);
             const siteApplicants = applicants.filter(a => jobIds.includes(a.appliedJobId));
             const totals = { applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 };
-            siteApplicants.forEach(a => { totals.applications++; if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++; if (['합격', '입사'].includes(a.status)) totals.offers++; if (a.status === '입사') totals.hires++; });
+            
+            // --- ⬇️ 수정된 누적 집계 로직 ⬇️ ---
+            siteApplicants.forEach(a => { 
+                totals.applications++; 
+                
+                if (['컨택', '면접', '합격', '입사'].includes(a.status)) {
+                    totals.contacts++;
+                }
+                if (['면접', '합격', '입사'].includes(a.status)) {
+                    totals.interviews++;
+                }
+                if (['합격', '입사'].includes(a.status)) {
+                    totals.offers++;
+                }
+                if (a.status === '입사') {
+                    totals.hires++;
+                }
+            });
+            // --- ⬆️ 수정된 누적 집계 로직 ⬆️ ---
+
             const cost = settings?.monthlyCost || 0; const costPerHire = totals.hires > 0 ? (cost / totals.hires).toFixed(0) : 0;
             const rates = {
-                interviewFromAppRate: totals.applications > 0 ? ((totals.interviews / totals.applications) * 100).toFixed(1) : 0, offerFromInterviewRate: totals.interviews > 0 ? ((totals.offers / totals.interviews) * 100).toFixed(1) : 0,
-                hireFromOfferRate: totals.offers > 0 ? ((totals.hires / totals.offers) * 100).toFixed(1) : 0, overallRate: totals.applications > 0 ? ((totals.hires / totals.applications) * 100).toFixed(1) : 0
+                // '컨택' 전환율 추가
+                contactFromAppRate: totals.applications > 0 ? ((totals.contacts / totals.applications) * 100).toFixed(1) : 0,
+                interviewFromContactRate: totals.contacts > 0 ? ((totals.interviews / totals.contacts) * 100).toFixed(1) : 0, // 컨택 -> 면접
+                interviewFromAppRate: totals.applications > 0 ? ((totals.interviews / totals.applications) * 100).toFixed(1) : 0, // 지원 -> 면접 (기존 유지)
+                offerFromInterviewRate: totals.interviews > 0 ? ((totals.offers / totals.interviews) * 100).toFixed(1) : 0,
+                hireFromOfferRate: totals.offers > 0 ? ((totals.hires / totals.offers) * 100).toFixed(1) : 0, 
+                overallRate: totals.applications > 0 ? ((totals.hires / totals.applications) * 100).toFixed(1) : 0
             };
-            return { site, ...totals, ...rates, cost, costPerHire, efficiency: parseFloat(rates.overallRate) - (cost / 100000) };
+            // 효율성 점수 로직은 그대로 두거나 필요시 조정 (여기서는 '전환율' - '비용'으로 단순화)
+            const efficiency = parseFloat(rates.overallRate) - (cost / 100000); 
+            return { site, ...totals, ...rates, cost, costPerHire, efficiency };
         });
     }, [jobs, applicants, siteSettings]);
+    
     const sortedBySite = [...analysisData].sort((a, b) => b.overallRate - a.overallRate);
+    
     return (
         <div className="p-4 md:p-8">
             <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-8">효율성 분석</h2>
@@ -28,8 +56,10 @@ const EfficiencyAnalysis = ({ jobs, applicants, siteSettings }) => {
                     {analysisData.map(data => (
                         <div key={data.site} className="border-b pb-4 last:border-b-0">
                             <h4 className="font-semibold text-lg mb-3">{data.site}</h4>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                                <div><span className="text-gray-600">지원 → 면접</span><p className="rate-value text-blue-600">{data.interviewFromAppRate}%</p></div>
+                            {/* '컨택' 단계를 포함하도록 UI 수정 */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                <div><span className="text-gray-600">지원 → 컨택</span><p className="rate-value text-blue-500">{data.contactFromAppRate}%</p></div>
+                                <div><span className="text-gray-600">컨택 → 면접</span><p className="rate-value text-blue-600">{data.interviewFromContactRate}%</p></div>
                                 <div><span className="text-gray-600">면접 → 합격</span><p className="rate-value text-purple-600">{data.offerFromInterviewRate}%</p></div>
                                 <div><span className="text-gray-600">합격 → 입사</span><p className="rate-value text-green-600">{data.hireFromOfferRate}%</p></div>
                             </div>
