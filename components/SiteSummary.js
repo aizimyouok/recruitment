@@ -13,14 +13,26 @@ const SiteSummary = ({ jobs, dailyRecords, applicants, filter }) => {
         const totalViews = siteRecords.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
         const siteApplicants = applicants.filter(a => jobIds.includes(a.appliedJobId));
         const totals = { jobs: siteJobs.length, views: totalViews, applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 };
+
+        // --- ⬇️ 수정된 누적 집계 로직 ⬇️ ---
         siteApplicants.forEach(a => {
-            totals.applications++;
-            // ✅ '컨택' 상태 집계 추가
-            if (a.status === '컨택') totals.contacts++;
-            if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++;
-            if (['합격', '입사'].includes(a.status)) totals.offers++;
-            if (a.status === '입사') totals.hires++;
+            totals.applications++; // 모든 지원자
+            
+            if (['컨택', '면접', '합격', '입사'].includes(a.status)) {
+                totals.contacts++;
+            }
+            if (['면접', '합격', '입사'].includes(a.status)) {
+                totals.interviews++;
+            }
+            if (['합격', '입사'].includes(a.status)) {
+                totals.offers++;
+            }
+            if (a.status === '입사') {
+                totals.hires++;
+            }
         });
+        // --- ⬆️ 수정된 누적 집계 로직 ⬆️ ---
+
         return { site, ...totals };
     });
 
