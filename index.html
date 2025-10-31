@@ -52,13 +52,14 @@
 
     <!-- 
       컴포넌트 파일을 먼저 로드합니다.
-      Babel이 이 파일을 먼저 처리하여 'Icon' 컴포넌트를 전역 스코프에 정의합니다.
+      Login 컴포넌트가 Icon을 사용하므로 Icon.js가 먼저 와야 합니다.
     -->
     <script type="text/babel" src="components/Icon.js"></script>
+    <script type="text/babel" src="components/ChartComponent.js"></script>
+    <script type="text/babel" src="components/Login.js"></script>
 
     <!-- 
       메인 애플리케이션 스크립트.
-      위에서 로드한 'Icon' 컴포넌트를 사용할 수 있습니다.
     -->
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef, useCallback } = React;
@@ -81,93 +82,13 @@
         };
 
         // --- 아이콘 컴포넌트 ---
-        // 이 코드는 components/Icon.js로 이동했습니다.
+        // components/Icon.js로 이동했습니다.
 
-        // 차트 컴포넌트
-        const ChartComponent = ({ type, data, options }) => {
-            const canvasRef = useRef(null);
-            const chartRef = useRef(null);
+        // --- 차트 컴포넌트 ---
+        // components/ChartComponent.js로 이동했습니다.
 
-            useEffect(() => {
-                if (canvasRef.current) {
-                    if (chartRef.current) {
-                        chartRef.current.destroy();
-                    }
-                    const ctx = canvasRef.current.getContext('2d');
-                    chartRef.current = new Chart(ctx, {
-                        type: type,
-                        data: data,
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            ...options
-                        }
-                    });
-                }
-                return () => {
-                    if (chartRef.current) {
-                        chartRef.current.destroy();
-                    }
-                };
-            }, [type, data, options]);
-
-            if (type === 'radar') {
-                return (
-                    <div className="radar-chart-container">
-                        <canvas ref={canvasRef} />
-                    </div>
-                );
-            }
-            return <canvas ref={canvasRef} />;
-        };
-
-        // 로그인 컴포넌트 (Google 로그인 버튼)
-        const Login = ({ onLogin }) => {
-            const [error, setError] = useState('');
-            const [loading, setLoading] = useState(false);
-
-            const handleGoogleLogin = async () => {
-                setError('');
-                setLoading(true);
-                try {
-                    const provider = new firebase.auth.GoogleAuthProvider();
-                    await auth.signInWithPopup(provider);
-                    onLogin();
-                } catch (err) {
-                    setError('로그인 실패: ' + err.message);
-                    console.error("Google Login Error:", err);
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            return (
-                <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
-                        <h1 className="text-3xl font-bold text-gray-800 mb-8">
-                            채용 현황 관리 시스템
-                        </h1>
-
-                        {error && (
-                            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6 text-sm">
-                                {error}
-                            </div>
-                        )}
-
-                        <button
-                            onClick={handleGoogleLogin}
-                            disabled={loading}
-                            className="w-full bg-white border border-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-all shadow-md disabled:opacity-50 flex items-center justify-center space-x-2"
-                        >
-                            <Icon name="google" size={20} />
-                            <span>
-                                {loading ? '로그인 중...' : 'Google 계정으로 로그인'}
-                            </span>
-                        </button>
-                    </div>
-                </div>
-            );
-        };
+        // --- 로그인 컴포넌트 ---
+        // components/Login.js로 이동했습니다.
 
         // --- 메인 앱 ---
         const App = () => {
@@ -1337,3 +1258,4 @@
     </script>
 </body>
 </html>
+
