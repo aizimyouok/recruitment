@@ -160,57 +160,40 @@
                  setAuthLoading(true); // 로그인 시도 시 로딩 상태로 변경
             }
 
-            // 데이터 로드 함수 (개선됨 - 필요한 것만 로드)
-const loadData = useCallback(async (collections = ['all']) => {
-    if (!auth.currentUser) return;
-    
-    try {
-        const promises = [];
-        const collectionMap = {
-            jobs: () => db.collection('jobs').get(),
-            dailyRecords: () => db.collection('dailyRecords').get(),
-            applicants: () => db.collection('applicants').orderBy('appliedDate', 'desc').get(),
-            siteSettings: () => db.collection('siteSettings').get(),
-            goals: () => db.collection('goals').get()
-        };
+            // 데이터 로드 함수
+            const loadData = useCallback(async () => {
+                if (!auth.currentUser) return; // 인증된 사용자만 데이터 로드
+                 
+                // 데이터 로드가 이미 진행 중이면 중복 실행 방지 (선택적)
+                // if (loading) return; 
+                // setLoading(true); // 데이터 로드 시작
+                 
+                try {
+                    const [jobsSnapshot, recordsSnapshot, applicantsSnapshot, settingsSnapshot, goalsSnapshot] = await Promise.all([
+                        db.collection('jobs').get(),
+                        db.collection('dailyRecords').get(),
+                        db.collection('applicants').orderBy('appliedDate', 'desc').get(),
+                        db.collection('siteSettings').get(),
+                        db.collection('goals').get()
+                    ]);
 
-        // 'all'이 포함되어 있으면 모든 데이터 로드
-        if (collections.includes('all')) {
-            collections = Object.keys(collectionMap);
-        }
+                    setJobs(jobsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    setDailyRecords(recordsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    setApplicants(applicantsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    setSiteSettings(settingsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    setGoals(goalsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-        // 필요한 컬렉션만 로드
-        const results = {};
-        for (const collection of collections) {
-            if (collectionMap[collection]) {
-                results[collection] = await collectionMap[collection]();
-            }
-        }
-
-        // 상태 업데이트
-        if (results.jobs) {
-            setJobs(results.jobs.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        }
-        if (results.dailyRecords) {
-            setDailyRecords(results.dailyRecords.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        }
-        if (results.applicants) {
-            setApplicants(results.applicants.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        }
-        if (results.siteSettings) {
-            setSiteSettings(results.siteSettings.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        }
-        if (results.goals) {
-            setGoals(results.goals.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        }
-
-    } catch (error) {
-        console.error("데이터 로드 오류:", error);
-        alert('데이터 로드에 실패했습니다: ' + error.message);
-    } finally {
-        setLoading(false);
-    }
-}, []);
+                } catch (error) {
+                    console.error("데이터 로드 오류:", error);
+                    // setLoading(false); // 오류 발생 시 로딩 상태 해제
+                } finally {
+                     // 데이터 로드 완료 후 로딩 상태 해제
+                    // setLoading(false); 
+                    
+                    // authLoading 이후의 초기 로딩을 관리하기 위해 loading 상태 사용
+                    if (loading) setLoading(false);
+                }
+            }, [loading]); // loading 상태가 변경될 때 (초기 로드 시) 실행
 
 
             // 1. 인증 로딩 중
@@ -290,5 +273,4 @@ const loadData = useCallback(async (collections = ['all']) => {
     </script>
 </body>
 </html>
-
 
