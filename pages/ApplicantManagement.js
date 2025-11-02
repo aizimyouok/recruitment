@@ -86,10 +86,7 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
     }, [applicants, filters, searchTerm]);
 
     const getJobTitle = useCallback((jobId) => jobs.find(j => j.id === jobId)?.title || 'N/A', [jobs]);
-    
-    // --- ⬇️ (추가) '모집유형' (position)을 가져오는 함수 ⬇️ ---
     const getJobPosition = useCallback((jobId) => jobs.find(j => j.id === jobId)?.position || 'N/A', [jobs]);
-    // --- ⬆️ (추가) ⬆️ ---
 
     return (
         <div className="p-4 md:p-8">
@@ -114,14 +111,12 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="label-style">지원 공고</label>
-                                    {/* --- ⬇️ (수정) 공고 선택 시 모집유형을 함께 표시 ⬇️ --- */}
                                     <Select name="appliedJobId" value={formData.appliedJobId} onChange={handleInputChange} required>
                                         <option value="">-- 공고 선택 --</option>
                                         {activeJobs.map(job => 
                                             <option key={job.id} value={job.id}>{job.title} ({job.position})</option>
                                         )}
                                     </Select>
-                                    {/* --- ⬆️ (수정) ⬆️ --- */}
                                 </div>
                                 <div><label className="label-style">지원 날짜</label><Input type="date" name="appliedDate" value={formData.appliedDate} onChange={handleInputChange} required /></div>
                             </div>
@@ -133,41 +128,42 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
                 </div>
             )}
 
+            {/* --- ⬇️ (수정) 필터 바 레이아웃 수정 ⬇️ --- */}
             <div className="bg-white rounded-xl shadow-lg p-4 mb-6">
-                <div className="flex flex-col md:flex-row md:items-center gap-4">
-                    <div className="min-w-0 md:w-64">
+                {/* 'flex-col md:flex-row' -> 'flex flex-wrap'로 변경, 'gap-4' 유지 */}
+                <div className="flex flex-wrap items-center gap-4">
+                    {/* 1. 이름 검색 */}
+                    <div className="min-w-0 w-full md:w-64">
                         <Input type="text" placeholder="이름 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                     </div>
-                    <div className="flex space-x-2 w-full md:w-auto md:ml-auto">
-                        <Select value={filters.jobId} onChange={(e) => setFilters(prev => ({ ...prev, jobId: e.target.value }))} className="filter-select flex-1 md:flex-none">
+                    
+                    {/* 2. 필터 그룹 (ml-auto 제거, gap-2 사용) */}
+                    <div className="flex flex-wrap gap-2">
+                        <Select value={filters.jobId} onChange={(e) => setFilters(prev => ({ ...prev, jobId: e.target.value }))} className="filter-select">
                             <option value="all">모든 공고</option>
-                            {/* --- ⬇️ (수정) 필터에도 모집유형 표시 ⬇️ --- */}
                             {activeJobs.map(job => 
                                 <option key={job.id} value={job.id}>{job.title} ({job.position})</option>
                             )}
-                            {/* --- ⬆️ (수정) ⬆️ --- */}
                         </Select>
-                        <Select value={filters.status} onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))} className="filter-select flex-1 md:flex-none"><option value="all">모든 상태</option>{applicantStatuses.map(status => <option key={status} value={status}>{status}</option>)}</Select>
+                        <Select value={filters.status} onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))} className="filter-select">
+                            <option value="all">모든 상태</option>
+                            {applicantStatuses.map(status => <option key={status} value={status}>{status}</option>)}
+                        </Select>
                     </div>
                 </div>
             </div>
+            {/* --- ⬆️ (수정) ⬆️ --- */}
 
             <div className="bg-white rounded-xl shadow-lg overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                        {/* --- ⬇️ (수정) 테이블 헤더에 '모집유형' 추가 ⬇️ --- */}
                         <thead className="bg-gray-50"><tr><th className="th-style">이름</th><th className="th-style">성별</th><th className="th-style">나이</th><th className="th-style">연락처</th><th className="th-style">지원 공고</th><th className="th-style">모집유형</th><th className="th-style">지원일</th><th className="th-style">상태</th><th className="th-style">작업</th></tr></thead>
-                        {/* --- ⬆️ (수정) ⬆️ --- */}
                         <tbody className="divide-y divide-gray-200">
                             {filteredApplicants.map(applicant => (
                                 <tr key={applicant.id} className="hover:bg-gray-50">
                                     <td className="td-style table-cell-nowrap">{applicant.name}</td><td className="td-style table-cell-nowrap">{applicant.gender}</td><td className="td-style table-cell-nowrap">{applicant.age}</td>
                                     <td className="td-style table-cell-nowrap">{applicant.contactInfo}</td><td className="td-style table-cell-nowrap">{getJobTitle(applicant.appliedJobId)}</td>
-                                    
-                                    {/* --- ⬇️ (추가) '모집유형' 데이터 셀 ⬇️ --- */}
                                     <td className="td-style table-cell-nowrap">{getJobPosition(applicant.appliedJobId)}</td>
-                                    {/* --- ⬆️ (추가) ⬆️ --- */}
-                                    
                                     <td className="td-style table-cell-nowrap">{applicant.appliedDate}</td>
                                     <td className="td-style table-cell-nowrap"><Select value={applicant.status} onChange={(e) => handleStatusChange(applicant.id, e.target.value)} className="p-1 text-xs w-24">{applicantStatuses.map(s => <option key={s} value={s}>{s}</option>)}</Select></td>
                                     <td className="td-style table-cell-nowrap"><div className="flex space-x-2"><button onClick={() => handleEdit(applicant)} className="text-blue-600 hover:text-blue-800"><Icon name="edit" size={16} /></button><button onClick={() => handleDelete(applicant.id)} className="text-red-600 hover:text-red-800"><Icon name="trash-2" size={16} /></button></div></td>
