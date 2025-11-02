@@ -8,8 +8,8 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
         dateRangeType: 'all',
         customRange: { start: '', end: '' },
         siteFilter: { '사람인': true, '잡코리아': true, '인크루트': true },
-        // --- ⬇️ (추가) '모집유형' 필터 상태 ⬇️ ---
-        positionFilter: { '영업': true, '강사': true, '기타': true },
+        // --- ⬇️ (수정) '기타' 제거 ⬇️ ---
+        positionFilter: { '영업': true, '강사': true },
         jobFilter: 'all'
     });
 
@@ -18,7 +18,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
         funnel: true,
         roi: true,
         trends: true,
-        // --- ⬇️ (추가) '모집유형' 섹션 ⬇️ ---
         positionAnalysis: true,
         demographics: true,
         rawData: true,
@@ -28,7 +27,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
     const [columns, setColumns] = useState({
         name: true,
         jobTitle: true,
-        // --- ⬇️ (추가) '모집유형' 컬럼 ⬇️ ---
         position: true,
         appliedDate: true,
         status: true,
@@ -59,7 +57,7 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
     };
     const selectedSites = useMemo(() => Object.keys(filters.siteFilter).filter(key => filters.siteFilter[key]), [filters.siteFilter]);
 
-    // --- ⬇️ (추가) '모집유형' 필터 핸들러 ⬇️ ---
+    // '모집유형' 필터 핸들러
     const handlePositionFilterChange = (posKey) => {
         setFilters(prev => {
             const newPosFilter = { ...prev.positionFilter, [posKey]: !prev.positionFilter[posKey] };
@@ -68,15 +66,11 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
     };
     const handleSelectAllPositions = (e) => {
         const isChecked = e.target.checked;
-        setFilters(prev => ({ ...prev, positionFilter: { '영업': isChecked, '강사': isChecked, '기타': isChecked }, jobFilter: 'all' }));
+        // --- ⬇️ (수정) '기타' 제거 ⬇️ ---
+        setFilters(prev => ({ ...prev, positionFilter: { '영업': isChecked, '강사': isChecked }, jobFilter: 'all' }));
     };
     const selectedPositions = useMemo(() => Object.keys(filters.positionFilter).filter(key => filters.positionFilter[key]), [filters.positionFilter]);
-    // --- ⬆️ (추가) ⬆️ ---
-
-    // 섹션 선택 핸들러
-    const handleSectionToggle = (key) => {
-        setSections(prev => ({ ...prev, [key]: !prev[key] }));
-    };
+    // --- ⬆️ (수정) ⬆️ ---
 
     const jobIdToJob = useMemo(() => {
         return jobs.reduce((acc, job) => {
@@ -106,14 +100,12 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
     const handleGenerateReport = () => {
         // --- 1. 데이터 필터링 ---
         
-        // --- ⬇️ (수정) '모집유형' 필터 적용 ⬇️ ---
         const filteredJobs = jobs.filter(j => 
             (selectedSites.includes(j.site)) &&
-            (selectedPositions.includes(j.position)) && // '모집유형' 필터
+            (selectedPositions.includes(j.position)) && 
             (filters.jobFilter === 'all' || j.id === filters.jobFilter)
         );
         const jobIds = filteredJobs.map(j => j.id);
-        // --- ⬆️ (수정) ⬆️ ---
         
         const applyDateFilter = (items, dateField) => {
             if (dateRange.start && dateRange.end && filters.dateRangeType !== 'all') {
@@ -218,7 +210,7 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
             newReportData.trends = { lineChartData, pieChartData };
         }
         
-        // --- ⬇️ (추가) '모집유형별 분석' 섹션 데이터 ⬇️ ---
+        // '모집유형별 분석' 섹션 데이터
         if (sections.positionAnalysis) {
             const posStats = {};
             selectedPositions.forEach(pos => {
@@ -240,12 +232,12 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                 labels: Object.keys(posStats),
                 datasets: [{ 
                     data: Object.values(posStats).map(d => d.applications),
-                    backgroundColor: ['rgba(34, 197, 94, 0.8)', 'rgba(234, 179, 8, 0.8)', 'rgba(107, 114, 128, 0.8)'].slice(0, Object.keys(posStats).length) 
+                    // --- ⬇️ (수정) '기타' 색상(회색) 제거 ⬇️ ---
+                    backgroundColor: ['rgba(34, 197, 94, 0.8)', 'rgba(234, 179, 8, 0.8)'].slice(0, Object.keys(posStats).length) 
                 }]
             };
             newReportData.positionAnalysis = { pieChartData: posPieData, summaryData: posStats };
         }
-        // --- ⬆️ (추가) ⬆️ ---
 
         // (제안 4: 지원자 통계)
         if (sections.demographics) {
@@ -281,7 +273,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
     
     // 필터링된 공고 목록 (select용)
     const availableJobs = useMemo(() => {
-        // --- ⬇️ (수정) '모집유형' 필터 반영 ⬇️ ---
         return jobs.filter(j => selectedSites.includes(j.site) && selectedPositions.includes(j.position));
     }, [jobs, selectedSites, selectedPositions]);
 
@@ -296,10 +287,10 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
         if (selectedSites.length < 3) parts.push(selectedSites.join(', '));
         else parts.push("전체 사이트");
         
-        // --- ⬇️ (추가) '모집유형' 제목 ⬇️ ---
-        if (selectedPositions.length < 3) parts.push(selectedPositions.join(', '));
+        // --- ⬇️ (수정) '기타' 제거 ⬇️ ---
+        if (selectedPositions.length < 2) parts.push(selectedPositions.join(', '));
         else parts.push("전체 유형");
-        // --- ⬆️ (추가) ⬆️ ---
+        // --- ⬆️ (수정) ⬆️ ---
 
         if (filters.jobFilter !== 'all') {
             const job = jobs.find(j => j.id === filters.jobFilter);
@@ -322,7 +313,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                 {/* 필터 설정 */}
                 <div className="bg-white rounded-xl shadow-lg p-4 mb-6">
                     <h3 className="text-xl font-semibold mb-4">1. 필터 설정</h3>
-                    {/* --- ⬇️ (수정) grid-cols-4로 변경 ⬇️ --- */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                         {/* 날짜 필터 */}
                         <div>
@@ -355,19 +345,20 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                             </div>
                         </div>
 
-                        {/* --- ⬇️ (추가) '모집유형' 필터 ⬇️ --- */}
+                        {/* '모집유형' 필터 */}
                         <div>
                             <label className="label-style">모집유형</label>
                             <div className="space-y-2 mt-2">
-                                <label className="flex items-center space-x-2"><input type="checkbox" checked={selectedPositions.length === 3} onChange={handleSelectAllPositions} className="h-4 w-4" /> <span><b>전체 선택</b></span></label>
+                                {/* --- ⬇️ (수정) '기타' 제거 ⬇️ --- */}
+                                <label className="flex items-center space-x-2"><input type="checkbox" checked={selectedPositions.length === 2} onChange={handleSelectAllPositions} className="h-4 w-4" /> <span><b>전체 선택</b></span></label>
                                 {Object.keys(filters.positionFilter).map(posKey => (
                                      <label key={posKey} className="flex items-center space-x-2 ml-4">
                                         <input type="checkbox" checked={filters.positionFilter[posKey]} onChange={() => handlePositionFilterChange(posKey)} className="h-4 w-4" /> <span>{posKey}</span>
                                      </label>
                                 ))}
+                                {/* --- ⬆️ (수정) ⬆️ --- */}
                             </div>
                         </div>
-                        {/* --- ⬆️ (추가) ⬆️ --- */}
 
                         {/* 공고 필터 */}
                         <div>
@@ -385,7 +376,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                 {/* 섹션 선택 */}
                 <div className="bg-white rounded-xl shadow-lg p-4 mb-8">
                     <h3 className="text-xl font-semibold mb-4">2. 포함할 리포트 항목</h3>
-                    {/* --- ⬇️ (수정) grid-cols-6로 변경 및 '모집유형 분석' 추가 ⬇️ --- */}
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                         <label className="flex items-center space-x-2 p-3 bg-gray-50 rounded-lg"><input type="checkbox" checked={sections.funnel} onChange={() => handleSectionToggle('funnel')} className="h-5 w-5" /> <span>채용 퍼널</span></label>
                         <label className="flex items-center space-x-2 p-3 bg-gray-50 rounded-lg"><input type="checkbox" checked={sections.roi} onChange={() => handleSectionToggle('roi')} className="h-5 w-5" /> <span>비용 대비 효과</span></label>
@@ -454,14 +444,15 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                             </ReportSection>
                         )}
                         
-                        {/* --- ⬇️ (추가) '모집유형별 분석' 섹션 ⬇️ --- */}
+                        {/* '모집유형별 분석' 섹션 */}
                         {sections.positionAnalysis && reportData.positionAnalysis && (
                              <ReportSection title="모집유형별 분석">
                                 <h4 className="text-lg font-semibold mb-3">모집유형별 지원자 비율</h4>
                                 <div className="w-full h-64 mb-6"><ChartComponent type="pie" data={reportData.positionAnalysis.pieChartData} options={{ plugins: { datalabels: { display: true, color: 'white', font: { weight: 'bold', size: 12 }, formatter: (value, ctx) => { const dataset = ctx.chart.data.datasets[0]; const total = dataset.data.reduce((acc, data) => acc + data, 0); const percentage = (value * 100 / total).toFixed(1) + '%'; return `${value}명\n(${percentage})`; } }, tooltip: { callbacks: { label: (ctx) => { const label = ctx.label || ''; const value = ctx.raw || 0; const dataset = ctx.dataset.data; const total = dataset.reduce((acc, data) => acc + data, 0); const percentage = (value * 100 / total).toFixed(1) + '%'; return `${label}: ${value}명 (${percentage})`; } } } } }} /></div>
                                 
                                 <h4 className="text-lg font-semibold mb-3">모집유형별 현황</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {/* --- ⬇️ (수정) grid-cols-2로 변경 ⬇️ --- */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {Object.entries(reportData.positionAnalysis.summaryData).map(([pos, data]) => (
                                         <div key={pos} className="border border-gray-200 rounded-lg p-4">
                                             <h5 className="font-semibold text-lg mb-3">{pos}</h5>
@@ -477,7 +468,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                                 </div>
                              </ReportSection>
                         )}
-                        {/* --- ⬆️ (추가) ⬆️ --- */}
 
                         {/* 섹션 4: 지원자 통계 */}
                         {sections.demographics && reportData.demographics && (
@@ -512,7 +502,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                                         {Object.keys(columns).map(colKey => (
                                             <label key={colKey} className="flex items-center space-x-2">
                                                 <input type="checkbox" checked={columns[colKey]} onChange={() => handleColumnToggle(colKey)} className="h-4 w-4" />
-                                                {/* --- ⬇️ (수정) '모집유형' 라벨 추가 ⬇️ --- */}
                                                 <span>{ {name: '이름', jobTitle: '지원 공고', position: '모집유형', appliedDate: '지원일', status: '상태', gender: '성별', age: '나이', contactInfo: '연락처'}[colKey] }</span>
                                             </label>
                                         ))}
@@ -525,7 +514,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                                             <tr>
                                                 {columns.name && <th className="th-style">이름</th>}
                                                 {columns.jobTitle && <th className="th-style">지원 공고</th>}
-                                                {/* --- ⬇️ (추가) '모집유형' <th> ⬇️ --- */}
                                                 {columns.position && <th className="th-style">모집유형</th>}
                                                 {columns.appliedDate && <th className="th-style">지원일</th>}
                                                 {columns.status && <th className="th-style">상태</th>}
@@ -539,7 +527,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                                                 <tr key={a.id}>
                                                     {columns.name && <td className="td-style">{a.name}</td>}
                                                     {columns.jobTitle && <td className="td-style">{a.jobTitle}</td>}
-                                                    {/* --- ⬇️ (추가) '모집유형' <td> ⬇️ --- */}
                                                     {columns.position && <td className="td-style">{a.position}</td>}
                                                     {columns.appliedDate && <td className="td-style">{a.appliedDate}</td>}
                                                     {columns.status && <td className="td-style"><ApplicantStatusBadge status={a.status} /></td>}
