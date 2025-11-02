@@ -7,13 +7,15 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
     const [editingApplicant, setEditingApplicant] = useState(null);
     const [formData, setFormData] = useState({ name: '', gender: '남', age: '', contactInfo: '', appliedJobId: '', appliedDate: new Date().toISOString().split('T')[0], status: '지원', memo: '' });
     
-    // --- ⬇️ (수정) 필터 상태: 'jobId'를 'sites'와 'positions' (다중 선택)으로 변경 ⬇️ ---
+    // --- (수정) 필터 상태: 날짜 필터 state 추가 ---
     const [filters, setFilters] = useState({
         sites: { '사람인': true, '잡코리아': true, '인크루트': true },
         positions: { '영업': true, '강사': true },
         status: 'all'
     });
-    // --- ⬆️ (수정) ⬆️ ---
+    const [dateRangeType, setDateRangeType] = useState('all');
+    const [customRange, setCustomRange] = useState({ start: '', end: '' });
+    // --- (수정) ---
 
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -26,7 +28,26 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
         }
     }, [activeJobs, editingApplicant, formData.appliedJobId]);
 
-    // --- ⬇️ (추가) 다중 선택 필터 핸들러 ⬇️ ---
+    // --- ⬇️ (추가) 날짜 범위 계산 로직 (Dashboard.js와 동일) ⬇️ ---
+    const dateRange = useMemo(() => {
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
+        if (dateRangeType === 'week') {
+            const weekAgo = new Date(new Date().setDate(today.getDate() - 7));
+            return { start: weekAgo.toISOString().split('T')[0], end: todayStr };
+        }
+        if (dateRangeType === 'month') {
+            const monthAgo = new Date(new Date().setMonth(today.getMonth() - 1));
+            return { start: monthAgo.toISOString().split('T')[0], end: todayStr };
+        }
+        if (dateRangeType === 'custom' && customRange.start && customRange.end) {
+            return customRange;
+        }
+        return { start: null, end: todayStr };
+    }, [dateRangeType, customRange]);
+    // --- ⬆️ (추가) ⬆️ ---
+
+    // 다중 선택 필터 핸들러
     const handleSiteFilterChange = (siteKey) => {
         setFilters(prev => ({
             ...prev,
@@ -55,18 +76,15 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
         }));
     };
     
-    // 선택된 필터 항목 배열 (필터링 로직용)
     const selectedSites = useMemo(() => Object.keys(filters.sites).filter(key => filters.sites[key]), [filters.sites]);
     const selectedPositions = useMemo(() => Object.keys(filters.positions).filter(key => filters.positions[key]), [filters.positions]);
     
-    // 공고 ID로 공고 정보(사이트, 유형)를 찾기 위한 맵
     const jobIdToJob = useMemo(() => {
         return jobs.reduce((acc, job) => {
             acc[job.id] = job;
             return acc;
         }, {});
     }, [jobs]);
-    // --- ⬆️ (추가) ⬆️ ---
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -126,29 +144,34 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
         }
     };
 
-    // --- ⬇️ (수정) 필터링 로직 (filteredApplicants) ⬇️ ---
+    // --- ⬇️ (수정) 필터링 로직: 날짜 필터(dateMatch) 추가 ⬇️ ---
     const filteredApplicants = useMemo(() => {
         return applicants.filter(a => {
             const job = jobIdToJob[a.appliedJobId];
-            // 지원한 공고 정보가 없는 경우 (예: 공고 삭제됨)
             if (!job) return false; 
             
-            // 1. 사이트 필터
             const siteMatch = selectedSites.includes(job.site);
-            // 2. 모집유형 필터
             const positionMatch = selectedPositions.includes(job.position);
-            // 3. 상태 필터
             const statusMatch = filters.status === 'all' || a.status === filters.status;
-            // 4. 이름 검색 필터
             const nameMatch = searchTerm === '' || (a.name && a.name.toLowerCase().includes(searchTerm.toLowerCase()));
             
-            return siteMatch && positionMatch && statusMatch && nameMatch;
+            // 5. 날짜 필터 (신규 추가)
+            const dateMatch = (dateRangeType === 'all') ? true : (
+                a.appliedDate && // 지원일 데이터가 있는지 확인
+                a.appliedDate >= dateRange.start && 
+                a.appliedDate <= dateRange.end
+            );
+            
+            return siteMatch && positionMatch && statusMatch && nameMatch && dateMatch; // dateMatch 추가
         });
-    }, [applicants, filters, searchTerm, jobIdToJob, selectedSites, selectedPositions]); // 의존성 업데이트
+    }, [applicants, filters, searchTerm, jobIdToJob, selectedSites, selectedPositions, dateRange, dateRangeType]); // dateRange, dateRangeType 의존성 추가
     // --- ⬆️ (수정) ⬆️ ---
 
+    // --- ⬇️ (수정) getJobSite 함수 추가 ⬇️ ---
     const getJobTitle = useCallback((jobId) => jobIdToJob[jobId]?.title || 'N/A', [jobIdToJob]);
     const getJobPosition = useCallback((jobId) => jobIdToJob[jobId]?.position || 'N/A', [jobIdToJob]);
+    const getJobSite = useCallback((jobId) => jobIdToJob[jobId]?.site || 'N/A', [jobIdToJob]);
+    // --- ⬆️ (수정) ⬆️ ---
 
     return (
         <div className="p-4 md:p-8">
@@ -190,16 +213,37 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
                 </div>
             )}
 
-            {/* --- ⬇️ (수정) 필터 바 레이아웃 및 항목 전체 변경 ⬇️ --- */}
+            {/* --- ⬇️ (수정) 필터 바 레이아웃 및 '날짜 필터' 추가 ⬇️ --- */}
             <div className="bg-white rounded-xl shadow-lg p-4 mb-6">
                 <div className="flex flex-wrap items-start gap-x-6 gap-y-4">
                     {/* 1. 이름 검색 */}
-                    <div className="min-w-0 w-full sm:w-auto md:w-64">
+                    <div className="min-w-0 w-full sm:w-auto md:w-56">
                         <label className="label-style">이름 검색</label>
                         <Input type="text" placeholder="이름 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                     </div>
                     
-                    {/* 2. 모집유형 필터 */}
+                    {/* 2. 날짜 필터 (신규 추가) */}
+                    <div>
+                         <label className="label-style">지원일</label>
+                         <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+                                {['all', 'week', 'month', 'custom'].map(type => (
+                                    <button key={type} onClick={() => setDateRangeType(type)} className={`px-3 py-1 rounded-md text-sm font-medium ${dateRangeType === type ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:text-gray-800'}`}>
+                                        { {all: '전체', week: '1주', month: '1개월', custom: '기간'}[type] }
+                                    </button>
+                                ))}
+                            </div>
+                            {dateRangeType === 'custom' && (
+                                <div className="flex items-center space-x-2">
+                                    <Input type="date" value={customRange.start} onChange={(e) => setCustomRange(p => ({...p, start: e.target.value}))} className="px-3 py-1 text-sm" />
+                                    <span>~</span>
+                                    <Input type="date" value={customRange.end} onChange={(e) => setCustomRange(p => ({...p, end: e.target.value}))} className="px-3 py-1 text-sm" />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    
+                    {/* 3. 모집유형 필터 */}
                     <div>
                         <label className="label-style">모집유형</label>
                         <div className="flex flex-wrap gap-x-4 gap-y-2 mt-2">
@@ -209,7 +253,7 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
                         </div>
                     </div>
 
-                    {/* 3. 사이트 필터 */}
+                    {/* 4. 사이트 필터 */}
                     <div>
                         <label className="label-style">지원사이트</label>
                         <div className="flex flex-wrap gap-x-4 gap-y-2 mt-2">
@@ -220,7 +264,7 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
                         </div>
                     </div>
 
-                    {/* 4. 상태 필터 */}
+                    {/* 5. 상태 필터 */}
                     <div>
                         <label className="label-style">상태</label>
                         <Select value={filters.status} onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))} className="filter-select">
@@ -235,12 +279,18 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
             <div className="bg-white rounded-xl shadow-lg overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                        <thead className="bg-gray-50"><tr><th className="th-style">이름</th><th className="th-style">성별</th><th className="th-style">나이</th><th className="th-style">연락처</th><th className="th-style">지원 공고</th><th className="th-style">모집유형</th><th className="th-style">지원일</th><th className="th-style">상태</th><th className="th-style">작업</th></tr></thead>
+                        {/* --- ⬇️ (수정) 테이블 헤더에 '지원사이트' 추가 ⬇️ --- */}
+                        <thead className="bg-gray-50"><tr><th className="th-style">이름</th><th className="th-style">성별</th><th className="th-style">나이</th><th className="th-style">연락처</th><th className="th-style">지원사이트</th><th className="th-style">지원 공고</th><th className="th-style">모집유형</th><th className="th-style">지원일</th><th className="th-style">상태</th><th className="th-style">작업</th></tr></thead>
+                        {/* --- ⬆️ (수정) ⬆️ --- */}
                         <tbody className="divide-y divide-gray-200">
                             {filteredApplicants.map(applicant => (
                                 <tr key={applicant.id} className="hover:bg-gray-50">
                                     <td className="td-style table-cell-nowrap">{applicant.name}</td><td className="td-style table-cell-nowrap">{applicant.gender}</td><td className="td-style table-cell-nowrap">{applicant.age}</td>
-                                    <td className="td-style table-cell-nowrap">{applicant.contactInfo}</td><td className="td-style table-cell-nowrap">{getJobTitle(applicant.appliedJobId)}</td>
+                                    <td className="td-style table-cell-nowrap">{applicant.contactInfo}</td>
+                                    {/* --- ⬇️ (추가) '지원사이트' 데이터 셀 ⬇️ --- */}
+                                    <td className="td-style table-cell-nowrap">{getJobSite(applicant.appliedJobId)}</td>
+                                    {/* --- ⬆️ (추가) ⬆️ --- */}
+                                    <td className="td-style table-cell-nowrap">{getJobTitle(applicant.appliedJobId)}</td>
                                     <td className="td-style table-cell-nowrap">{getJobPosition(applicant.appliedJobId)}</td>
                                     <td className="td-style table-cell-nowrap">{applicant.appliedDate}</td>
                                     <td className="td-style table-cell-nowrap"><Select value={applicant.status} onChange={(e) => handleStatusChange(applicant.id, e.target.value)} className="p-1 text-xs w-24">{applicantStatuses.map(s => <option key={s} value={s}>{s}</option>)}</Select></td>
