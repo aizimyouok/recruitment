@@ -33,25 +33,29 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
         setSections(prev => ({ ...prev, [key]: !prev[key] }));
     };
 
+    // --- ⬇️ (수정) 'dateRange' 계산을 useMemo 훅으로 밖으로 이동 ⬇️ ---
+    const dateRange = useMemo(() => {
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
+        if (filters.dateRangeType === 'week') {
+            const weekAgo = new Date(new Date().setDate(today.getDate() - 7));
+            return { start: weekAgo.toISOString().split('T')[0], end: todayStr };
+        }
+        if (filters.dateRangeType === 'month') {
+            const monthAgo = new Date(new Date().setMonth(today.getMonth() - 1));
+            return { start: monthAgo.toISOString().split('T')[0], end: todayStr };
+        }
+        if (filters.dateRangeType === 'custom' && filters.customRange.start && filters.customRange.end) {
+            return filters.customRange;
+        }
+        return { start: null, end: todayStr };
+    }, [filters.dateRangeType, filters.customRange]);
+    // --- ⬆️ (수정) 'dateRange' 계산 완료 ⬆️ ---
+
     // 리포트 생성 로직
     const handleGenerateReport = () => {
         // --- 1. 데이터 필터링 ---
-        const dateRange = (() => {
-            const today = new Date();
-            const todayStr = today.toISOString().split('T')[0];
-            if (filters.dateRangeType === 'week') {
-                const weekAgo = new Date(new Date().setDate(today.getDate() - 7));
-                return { start: weekAgo.toISOString().split('T')[0], end: todayStr };
-            }
-            if (filters.dateRangeType === 'month') {
-                const monthAgo = new Date(new Date().setMonth(today.getMonth() - 1));
-                return { start: monthAgo.toISOString().split('T')[0], end: todayStr };
-            }
-            if (filters.dateRangeType === 'custom' && filters.customRange.start && filters.customRange.end) {
-                return filters.customRange;
-            }
-            return { start: null, end: todayStr };
-        })();
+        // 'dateRange' 변수는 이제 상위 스코프의 useMemo 훅에서 가져옴
 
         const filteredJobs = jobs.filter(j => 
             (filters.siteFilter === 'all' || j.site === filters.siteFilter) &&
@@ -181,12 +185,17 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
         return jobs.filter(j => j.site === filters.siteFilter);
     }, [jobs, filters.siteFilter]);
 
-    // 리포트 제목 생성
+    // --- ⬇️ (수정) 'reportTitle' 생성 로직 수정 ⬇️ ---
     const reportTitle = useMemo(() => {
         let title = "채용 리포트";
         let parts = [];
-        if (filters.dateRangeType === 'all') parts.push("전체 기간");
-        else parts.push(`${dateRange.start} ~ ${dateRange.end}`);
+        
+        // 이제 'dateRange' 변수에 안전하게 접근 가능
+        if (filters.dateRangeType === 'all' || !dateRange.start) {
+            parts.push("전체 기간");
+        } else {
+            parts.push(`${dateRange.start} ~ ${dateRange.end}`);
+        }
         
         if (filters.siteFilter !== 'all') parts.push(filters.siteFilter);
         if (filters.jobFilter !== 'all') {
@@ -194,7 +203,8 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
             parts.push(job ? job.title : "선택된 공고");
         }
         return `${title} (${parts.join(" | ")})`;
-    }, [filters, reportData]); // reportData가 생성될 때의 filter 기준으로 고정
+    }, [filters, jobs, dateRange]); // 의존성 배열 수정
+    // --- ⬆️ (수정) 'reportTitle' 생성 로직 완료 ⬆️ ---
 
     return (
         <div className="p-4 md:p-8">
