@@ -179,12 +179,14 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
 
             {/* --- ⬇️ (수정) 필터 바 레이아웃 수정 ⬇️ --- */}
             <div className="bg-white rounded-xl shadow-lg p-4 mb-8">
-                {/* 'justify-between'을 추가하여 좌우 정렬을 시도하고, 
-                  'flex-wrap'으로 화면이 작을 때 줄바꿈이 되도록 함 
+                {/* - flex-wrap: 화면 작을 시 줄바꿈
+                  - items-center: 세로 중앙 정렬
+                  - justify-between: 좌우 양끝 정렬
+                  - gap-4: 요소간 최소 간격
                 */}
                 <div className="flex flex-wrap items-center justify-between gap-4">
                     
-                    {/* 1. 기간 필터 그룹 (flex-wrap 추가) */}
+                    {/* 1. 기간 필터 그룹 (좌측 그룹) */}
                     <div className="flex flex-wrap items-center gap-4">
                         <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
                             {['all', 'week', 'month', 'custom'].map(type => (
@@ -202,7 +204,8 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                         )}
                     </div>
                     
-                    {/* 2. 사이트/유형 필터 그룹 (ml-auto 제거, flex-wrap 추가) */}
+                    {/* 2. 사이트/유형 필터 그룹 (우측 그룹) */}
+                    {/* 'ml-auto'가 제거되었습니다. 부모의 'justify-between'이 정렬을 처리합니다. */}
                     <div className="flex flex-wrap gap-4">
                         <Select value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)} className="px-3 py-2 text-sm font-medium">
                             <option value="all">전체 사이트</option> <option value="사람인">사람인</option> <option value="잡코리아">잡코리아</option> <option value="인크루트">인크루트</option>
