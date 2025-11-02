@@ -6,8 +6,18 @@ const { useState, useMemo } = React;
 const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
     const [dateRangeType, setDateRangeType] = useState('all');
     const [customRange, setCustomRange] = useState({ start: '', end: '' });
-    const [siteFilter, setSiteFilter] = useState('all');
-    const [positionFilter, setPositionFilter] = useState('all');
+
+    // --- ⬇️ (수정) 'siteFilter'와 'positionFilter'를 객체(체크박스용)로 변경 ⬇️ ---
+    const [siteFilter, setSiteFilter] = useState({
+        '사람인': true,
+        '잡코리아': true,
+        '인크루트': true,
+    });
+    const [positionFilter, setPositionFilter] = useState({
+        '영업': true,
+        '강사': true,
+    });
+    // --- ⬆️ (수정) ⬆️ ---
 
     const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [widgetSettings, setWidgetSettings] = useState(() => {
@@ -15,6 +25,29 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
         return saved ? JSON.parse(saved) : { kpi: true, conversion: true, siteSummary: true, siteChart: true };
     });
     const [showSiteChart, setShowSiteChart] = useState(widgetSettings.siteChart);
+
+    // --- ⬇️ (추가) 체크박스 핸들러 함수 ⬇️ ---
+    const handleSiteFilterChange = (siteKey) => {
+        setSiteFilter(prev => ({ ...prev, [siteKey]: !prev[siteKey] }));
+    };
+    const handleSelectAllSites = (e) => {
+        const isChecked = e.target.checked;
+        setSiteFilter({ '사람인': isChecked, '잡코리아': isChecked, '인크루트': isChecked });
+    };
+    
+    const handlePositionFilterChange = (posKey) => {
+        setPositionFilter(prev => ({ ...prev, [posKey]: !prev[posKey] }));
+    };
+    const handleSelectAllPositions = (e) => {
+        const isChecked = e.target.checked;
+        setPositionFilter({ '영업': isChecked, '강사': isChecked });
+    };
+    
+    // 선택된 항목들을 배열로 변환 (필터링 로직용)
+    const selectedSites = useMemo(() => Object.keys(siteFilter).filter(key => siteFilter[key]), [siteFilter]);
+    const selectedPositions = useMemo(() => Object.keys(positionFilter).filter(key => positionFilter[key]), [positionFilter]);
+    // --- ⬆️ (추가) ⬆️ ---
+
 
     const handleSaveWidgetSettings = (newSettings) => {
         setWidgetSettings(newSettings);
@@ -41,10 +74,12 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
     }, [dateRangeType, customRange]);
 
     const filteredData = useMemo(() => {
+        // --- ⬇️ (수정) 필터링 로직 변경 (체크박스 배열 사용) ⬇️ ---
         const filteredJobs = jobs.filter(j => 
-            (siteFilter === 'all' || j.site === siteFilter) &&
-            (positionFilter === 'all' || j.position === positionFilter)
+            (selectedSites.includes(j.site)) &&
+            (selectedPositions.includes(j.position))
         );
+        // --- ⬆️ (수정) ⬆️ ---
         const jobIds = filteredJobs.map(j => j.id);
 
         const filteredRecords = dailyRecords.filter(r => {
@@ -66,7 +101,7 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
         });
 
         return { filteredJobs, filteredRecords, filteredApplicants };
-    }, [jobs, dailyRecords, applicants, siteFilter, positionFilter, dateRange, dateRangeType]); 
+    }, [jobs, dailyRecords, applicants, siteFilter, positionFilter, dateRange, dateRangeType, selectedSites, selectedPositions]); // 의존성 추가
 
     const stats = useMemo(() => {
         const activeJobs = filteredData.filteredJobs.filter(j => j.status === '진행중');
@@ -86,19 +121,25 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
         const targetYearMonth = dateRange.end.substring(0, 7);
         const currentGoal = goals.find(g => g.yearMonth === targetYearMonth);
         let targetHires = 0;
+        // --- ⬇️ (수정) 목표 달성률 로직 (다중 사이트 선택 반영) ⬇️ ---
         if (currentGoal) {
-            if (siteFilter === 'all') targetHires = currentGoal.targetHires || 0;
-            else if (siteFilter === '사람인') targetHires = currentGoal.targetSaramin || 0;
-            else if (siteFilter === '잡코리아') targetHires = currentGoal.targetJobkorea || 0;
-            else if (siteFilter === '인크루트') targetHires = currentGoal.targetIncruit || 0;
+            targetHires = 0;
+            if (selectedSites.length === 3) { // 전체 선택
+                targetHires = currentGoal.targetHires || 0;
+            } else { // 1개 또는 2개 선택
+                if (selectedSites.includes('사람인')) targetHires += currentGoal.targetSaramin || 0;
+                if (selectedSites.includes('잡코리아')) targetHires += currentGoal.targetJobkorea || 0;
+                if (selectedSites.includes('인크루트')) targetHires += currentGoal.targetIncruit || 0;
+            }
         }
+        // --- ⬆️ (수정) ⬆️ ---
         const achievementRate = targetHires > 0 ? ((totals.hires / targetHires) * 100).toFixed(0) : 0;
 
         return {
             activeJobs: activeJobs.length, views: totalViews, ...totals,
             conversionRate, targetHires, achievementRate
         };
-    }, [filteredData, siteFilter, positionFilter, dateRange, goals, siteSettings]); 
+    }, [filteredData, selectedSites, selectedPositions, dateRange, goals]); // 의존성 수정
 
     const radarChartData = useMemo(() => {
         const sites = ['사람인', '잡코리아', '인크루트'];
@@ -140,7 +181,9 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
         });
         
         return positions.map(pos => {
-            const posJobs = jobs.filter(j => j.position === pos && (siteFilter === 'all' || j.site === siteFilter));
+            // --- ⬇️ (수정) 사이트 필터 로직 변경 ⬇️ ---
+            const posJobs = jobs.filter(j => j.position === pos && selectedSites.includes(j.site));
+            // --- ⬆️ (수정) ⬆️ ---
             const jobIds = posJobs.map(j => j.id);
             const posApplicants = dateFilteredApplicants.filter(a => jobIds.includes(a.appliedJobId));
             
@@ -154,7 +197,7 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
             });
             return { position: pos, ...totals };
         });
-    }, [jobs, applicants, dateRange, dateRangeType, siteFilter]);
+    }, [jobs, applicants, dateRange, dateRangeType, siteFilter, selectedSites]); // 의존성 수정
 
 
     return (
@@ -166,55 +209,65 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
             <div className="hidden md:flex justify-between items-start mb-8">
                  <div>
                     <h2 className="text-3xl font-bold text-gray-800">대시보드</h2>
+                    {/* --- ⬇️ (수정) 헤더 텍스트 로직 변경 ⬇️ --- */}
                     <p className="text-gray-600">
-                        {siteFilter === 'all' ? '전체 사이트' : siteFilter}
-                        {positionFilter === 'all' ? ' | 전체 유형' : ` | ${positionFilter}`}
+                        {selectedSites.length === 3 ? '전체 사이트' : selectedSites.join(', ')}
+                        {selectedPositions.length === 2 ? ' | 전체 유형' : ` | ${selectedPositions.join(', ')}`}
                         {dateRangeType !== 'all' ? ` | ${dateRange.start} ~ ${dateRange.end}` : ' | 전체 기간'}
                     </p>
+                    {/* --- ⬆️ (수정) ⬆️ --- */}
                  </div>
                 <button onClick={() => setShowSettingsModal(true)} className="text-gray-500 hover:text-gray-800 p-2 rounded-full hover:bg-gray-100">
                     <Icon name="settings" size={24} />
                 </button>
             </div>
 
-            {/* --- ⬇️ (수정) 필터 바 레이아웃 수정 ⬇️ --- */}
+            {/* --- ⬇️ (수정) 필터 바 레이아웃 및 항목 전체 변경 ⬇️ --- */}
             <div className="bg-white rounded-xl shadow-lg p-4 mb-8">
-                {/* - flex-wrap: 화면 작을 시 줄바꿈
-                  - items-center: 세로 중앙 정렬
-                  - justify-between: 좌우 양끝 정렬
-                  - gap-4: 요소간 최소 간격
-                */}
-                <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-wrap items-start gap-x-6 gap-y-4">
                     
-                    {/* 1. 기간 필터 그룹 (좌측 그룹) */}
-                    <div className="flex flex-wrap items-center gap-4">
-                        <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
-                            {['all', 'week', 'month', 'custom'].map(type => (
-                                <button key={type} onClick={() => setDateRangeType(type)} className={`px-3 py-1 rounded-md text-sm font-medium ${dateRangeType === type ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:text-gray-800'}`}>
-                                    { {all: '전체', week: '1주', month: '1개월', custom: '기간'}[type] }
-                                </button>
-                            ))}
-                        </div>
-                        {dateRangeType === 'custom' && (
-                            <div className="flex items-center space-x-2">
-                                <Input type="date" value={customRange.start} onChange={(e) => setCustomRange(p => ({...p, start: e.target.value}))} className="px-3 py-1 text-sm" />
-                                <span>~</span>
-                                <Input type="date" value={customRange.end} onChange={(e) => setCustomRange(p => ({...p, end: e.target.value}))} className="px-3 py-1 text-sm" />
+                    {/* 1. 기간 필터 그룹 */}
+                    <div>
+                        <label className="label-style">기간</label>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+                                {['all', 'week', 'month', 'custom'].map(type => (
+                                    <button key={type} onClick={() => setDateRangeType(type)} className={`px-3 py-1 rounded-md text-sm font-medium ${dateRangeType === type ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:text-gray-800'}`}>
+                                        { {all: '전체', week: '1주', month: '1개월', custom: '기간'}[type] }
+                                    </button>
+                                ))}
                             </div>
-                        )}
+                            {dateRangeType === 'custom' && (
+                                <div className="flex items-center space-x-2">
+                                    <Input type="date" value={customRange.start} onChange={(e) => setCustomRange(p => ({...p, start: e.target.value}))} className="px-3 py-1 text-sm" />
+                                    <span>~</span>
+                                    <Input type="date" value={customRange.end} onChange={(e) => setCustomRange(p => ({...p, end: e.target.value}))} className="px-3 py-1 text-sm" />
+                                </div>
+                            )}
+                        </div>
                     </div>
-                    
-                    {/* 2. 사이트/유형 필터 그룹 (우측 그룹) */}
-                    {/* 'ml-auto'가 제거되었습니다. 부모의 'justify-between'이 정렬을 처리합니다. */}
-                    <div className="flex flex-wrap gap-4">
-                        <Select value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)} className="px-3 py-2 text-sm font-medium">
-                            <option value="all">전체 사이트</option> <option value="사람인">사람인</option> <option value="잡코리아">잡코리아</option> <option value="인크루트">인크루트</option>
-                        </Select>
-                        
-                        <Select value={positionFilter} onChange={(e) => setPositionFilter(e.target.value)} className="px-3 py-2 text-sm font-medium">
-                            <option value="all">전체 유형</option> <option value="영업">영업</option> <option value="강사">강사</option>
-                        </Select>
+
+                    {/* 2. 사이트 필터 그룹 */}
+                    <div>
+                        <label className="label-style">사이트</label>
+                        <div className="flex flex-wrap gap-x-4 gap-y-2 mt-2">
+                            <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={selectedSites.length === 3} onChange={handleSelectAllSites} /> <span><b>전체</b></span></label>
+                            <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={siteFilter['사람인']} onChange={() => handleSiteFilterChange('사람인')} /> <span>사람인</span></label>
+                            <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={siteFilter['잡코리아']} onChange={() => handleSiteFilterChange('잡코리아')} /> <span>잡코리아</span></label>
+                            <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={siteFilter['인크루트']} onChange={() => handleSiteFilterChange('인크루트')} /> <span>인크루트</span></label>
+                        </div>
                     </div>
+
+                    {/* 3. 모집유형 필터 그룹 */}
+                    <div>
+                        <label className="label-style">모집유형</label>
+                        <div className="flex flex-wrap gap-x-4 gap-y-2 mt-2">
+                            <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={selectedPositions.length === 2} onChange={handleSelectAllPositions} /> <span><b>전체</b></span></label>
+                            <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={positionFilter['영업']} onChange={() => handlePositionFilterChange('영업')} /> <span>영업</span></label>
+                            <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={positionFilter['강사']} onChange={() => handlePositionFilterChange('강사')} /> <span>강사</span></label>
+                        </div>
+                    </div>
+
                 </div>
             </div>
             {/* --- ⬆️ (수정) ⬆️ --- */}
@@ -224,7 +277,7 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                     <KPICard title="진행중인 공고" value={stats.activeJobs} icon="briefcase" color="blue" />
                     <KPICard title="총 지원자" value={stats.applications} icon="users" color="green" />
                     <KPICard title="총 면접 인원" value={stats.interviews} icon="user-check" color="purple" />
-                    <KPICard title="입사자" value={`${stats.hires} / ${stats.targetHires}`} icon="user-plus" color="orange" subText={stats.targetHires > 0 ? `달성률 ${stats.achievementRate}%` : '목표 미설정'}/>
+                    <KPICard title="입사자" value={`${stats.hires} / ${stats.targetHires}`} icon="user-plus" color="orange" subText={targetHires > 0 ? `달성률 ${stats.achievementRate}%` : '목표 미설정'}/>
                 </div>
             )}
 
@@ -257,7 +310,14 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                             </button>
                         )}
                     </div>
-                    <SiteSummary jobs={jobs} dailyRecords={dailyRecords} applicants={applicants} filter={siteFilter === 'all' ? null : siteFilter} />
+                    {/* --- ⬇️ (수정) SiteSummary filter prop 로직 변경 ⬇️ --- */}
+                    <SiteSummary 
+                        jobs={jobs} 
+                        dailyRecords={dailyRecords} 
+                        applicants={applicants} 
+                        filter={selectedSites.length === 1 ? selectedSites[0] : null} 
+                    />
+                    {/* --- ⬆️ (수정) ⬆️ --- */}
 
                     {widgetSettings.siteChart && showSiteChart && (
                         <div className="mt-6 border-t pt-6">
@@ -281,7 +341,9 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
             <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
                 <h3 className="text-xl font-semibold mb-4">모집유형별 현황</h3>
                 <p className="text-sm text-gray-500 -mt-2 mb-4">
-                    (기준: {siteFilter === 'all' ? '전체 사이트' : siteFilter} | {dateRangeType === 'all' ? '전체 기간' : `${dateRange.start} ~ ${dateRange.end}`})
+                    {/* --- ⬇️ (수정) 헤더 텍스트 로직 변경 ⬇️ --- */}
+                    (기준: {selectedSites.length === 3 ? '전체 사이트' : selectedSites.join(', ')} | {dateRangeType === 'all' ? '전체 기간' : `${dateRange.start} ~ ${dateRange.end}`})
+                    {/* --- ⬆️ (수정) ⬆️ --- */}
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {positionSummaryData.map(data => (
