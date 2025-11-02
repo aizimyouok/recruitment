@@ -7,7 +7,6 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
     const [dateRangeType, setDateRangeType] = useState('all');
     const [customRange, setCustomRange] = useState({ start: '', end: '' });
     const [siteFilter, setSiteFilter] = useState('all');
-    
     const [positionFilter, setPositionFilter] = useState('all');
 
     const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -95,14 +94,15 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
         }
         const achievementRate = targetHires > 0 ? ((totals.hires / targetHires) * 100).toFixed(0) : 0;
 
-        let totalCost = 0;
-        const filteredSettings = siteFilter === 'all' ? siteSettings : siteSettings.filter(s => s.site === siteFilter);
-        filteredSettings.forEach(s => { totalCost += s.monthlyCost || 0; });
-        const costPerHire = totals.hires > 0 ? (totalCost / totals.hires).toLocaleString(undefined, { maximumFractionDigits: 0 }) : 0;
+        // (삭제) 1인당 채용 비용 계산 로직 (카드에서 제거됨)
+        // let totalCost = 0;
+        // const filteredSettings = siteFilter === 'all' ? siteSettings : siteSettings.filter(s => s.site === siteFilter);
+        // filteredSettings.forEach(s => { totalCost += s.monthlyCost || 0; });
+        // const costPerHire = totals.hires > 0 ? (totalCost / totals.hires).toLocaleString(undefined, { maximumFractionDigits: 0 }) : 0;
 
         return {
             activeJobs: activeJobs.length, views: totalViews, ...totals,
-            conversionRate, targetHires, achievementRate, costPerHire
+            conversionRate, targetHires, achievementRate
         };
     }, [filteredData, siteFilter, positionFilter, dateRange, goals, siteSettings]); 
 
@@ -134,12 +134,9 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
         });
         return { labels, datasets };
     }, [jobs, dailyRecords, applicants]);
-
     
     const positionSummaryData = useMemo(() => {
-        // --- ⬇️ (수정) '기타' 제거 ⬇️ ---
         const positions = ['영업', '강사'];
-        // --- ⬆️ (수정) ⬆️ ---
         
         const dateFilteredApplicants = applicants.filter(a => {
              if (dateRange.start && dateRange.end && dateRangeType !== 'all') {
@@ -186,41 +183,50 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                 </button>
             </div>
 
+            {/* --- ⬇️ (수정) 필터 바 레이아웃 수정 ⬇️ --- */}
             <div className="bg-white rounded-xl shadow-lg p-4 mb-8">
+                {/* 'items-center' 추가, 'gap-4' 유지 */}
                 <div className="flex flex-wrap items-center gap-4">
-                    <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
-                        {['all', 'week', 'month', 'custom'].map(type => (
-                            <button key={type} onClick={() => setDateRangeType(type)} className={`px-3 py-1 rounded-md text-sm font-medium ${dateRangeType === type ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:text-gray-800'}`}>
-                                { {all: '전체', week: '1주', month: '1개월', custom: '기간'}[type] }
-                            </button>
-                        ))}
-                    </div>
-                    {dateRangeType === 'custom' && (
-                        <div className="flex items-center space-x-2">
-                            <Input type="date" value={customRange.start} onChange={(e) => setCustomRange(p => ({...p, start: e.target.value}))} className="px-3 py-1 text-sm" />
-                            <span>~</span>
-                            <Input type="date" value={customRange.end} onChange={(e) => setCustomRange(p => ({...p, end: e.target.value}))} className="px-3 py-1 text-sm" />
+                    {/* 기간 필터 (좌측) */}
+                    <div className="flex flex-wrap items-center gap-4">
+                        <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+                            {['all', 'week', 'month', 'custom'].map(type => (
+                                <button key={type} onClick={() => setDateRangeType(type)} className={`px-3 py-1 rounded-md text-sm font-medium ${dateRangeType === type ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:text-gray-800'}`}>
+                                    { {all: '전체', week: '1주', month: '1개월', custom: '기간'}[type] }
+                                </button>
+                            ))}
                         </div>
-                    )}
-                    <div className="flex flex-wrap gap-4">
+                        {dateRangeType === 'custom' && (
+                            <div className="flex items-center space-x-2">
+                                <Input type="date" value={customRange.start} onChange={(e) => setCustomRange(p => ({...p, start: e.target.value}))} className="px-3 py-1 text-sm" />
+                                <span>~</span>
+                                <Input type="date" value={customRange.end} onChange={(e) => setCustomRange(p => ({...p, end: e.target.value}))} className="px-3 py-1 text-sm" />
+                            </div>
+                        )}
+                    </div>
+                    
+                    {/* 사이트/유형 필터 (우측) */}
+                    {/* 'ml-auto'를 사용해 이 div를 우측으로 밀어냄 */}
+                    <div className="flex flex-wrap gap-4 ml-auto">
                         <Select value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)} className="px-3 py-2 text-sm font-medium">
                             <option value="all">전체 사이트</option> <option value="사람인">사람인</option> <option value="잡코리아">잡코리아</option> <option value="인크루트">인크루트</option>
                         </Select>
                         
-                        {/* --- ⬇️ (수정) '기타' 옵션 제거 ⬇️ --- */}
                         <Select value={positionFilter} onChange={(e) => setPositionFilter(e.target.value)} className="px-3 py-2 text-sm font-medium">
                             <option value="all">전체 유형</option> <option value="영업">영업</option> <option value="강사">강사</option>
                         </Select>
-                        {/* --- ⬆️ (수정) ⬆️ --- */}
                     </div>
                 </div>
             </div>
+            {/* --- ⬆️ (수정) ⬆️ --- */}
 
             {widgetSettings.kpi && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     <KPICard title="진행중인 공고" value={stats.activeJobs} icon="briefcase" color="blue" />
                     <KPICard title="총 지원자" value={stats.applications} icon="users" color="green" />
-                    <KPICard title="1인당 채용 비용 (월 기준)" value={stats.costPerHire > 0 ? `${stats.costPerHire}원` : '-'} icon="dollar-sign" color="purple" />
+                    {/* --- ⬇️ (수정) '채용 비용'을 '총 면접'으로 변경 ⬇️ --- */}
+                    <KPICard title="총 면접 인원" value={stats.interviews} icon="user-check" color="purple" />
+                    {/* --- ⬆️ (수정) ⬆️ --- */}
                     <KPICard title="입사자" value={`${stats.hires} / ${stats.targetHires}`} icon="user-plus" color="orange" subText={stats.targetHires > 0 ? `달성률 ${stats.achievementRate}%` : '목표 미설정'}/>
                 </div>
             )}
@@ -280,7 +286,6 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                 <p className="text-sm text-gray-500 -mt-2 mb-4">
                     (기준: {siteFilter === 'all' ? '전체 사이트' : siteFilter} | {dateRangeType === 'all' ? '전체 기간' : `${dateRange.start} ~ ${dateRange.end}`})
                 </p>
-                {/* --- ⬇️ (수정) grid-cols-2로 변경 ⬇️ --- */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {positionSummaryData.map(data => (
                         <div key={data.position} className="border border-gray-200 rounded-lg p-4">
