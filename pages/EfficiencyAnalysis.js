@@ -3,7 +3,6 @@ const { useState, useMemo } = React;
 // (컴포넌트들은 전역으로 로드됩니다)
 
 const EfficiencyAnalysis = ({ jobs, applicants, siteSettings }) => {
-    // --- ⬇️ (추가) 분석 기준(site, position)을 선택하는 상태 ⬇️ ---
     const [analysisType, setAnalysisType] = useState('site'); // 'site' or 'position'
 
     const analysisData = useMemo(() => {
@@ -28,14 +27,15 @@ const EfficiencyAnalysis = ({ jobs, applicants, siteSettings }) => {
         
         // === B. 모집유형별 분석 (신규 로직) ===
         else {
-            const positions = ['영업', '강사', '기타']; // 1단계에서 표준화한 유형
+            // --- ⬇️ (수정) '기타' 제거 ⬇️ ---
+            const positions = ['영업', '강사']; 
+            // --- ⬆️ (수정) ⬆️ ---
             return positions.map(pos => {
                 const posJobs = jobs.filter(j => j.position === pos); const jobIds = posJobs.map(j => j.id);
                 const posApplicants = applicants.filter(a => jobIds.includes(a.appliedJobId));
                 const totals = { applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 };
                 posApplicants.forEach(a => { totals.applications++; if (['컨택', '면접', '합격', '입사'].includes(a.status)) totals.contacts++; if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++; if (['합격', '입사'].includes(a.status)) totals.offers++; if (a.status === '입사') totals.hires++; });
                 
-                // 비용(cost)과 효율성(efficiency)은 사이트 기준이므로 여기서는 null 또는 0으로 처리
                 const cost = 0; const costPerHire = 0; const efficiency = 0;
                 
                 const rates = {
@@ -47,7 +47,7 @@ const EfficiencyAnalysis = ({ jobs, applicants, siteSettings }) => {
                 return { key: pos, name: pos, ...totals, ...rates, cost, costPerHire, efficiency };
             });
         }
-    }, [jobs, applicants, siteSettings, analysisType]); // 'analysisType' 의존성 추가
+    }, [jobs, applicants, siteSettings, analysisType]);
 
     const sortedData = [...analysisData].sort((a, b) => b.overallRate - a.overallRate);
 
@@ -55,7 +55,6 @@ const EfficiencyAnalysis = ({ jobs, applicants, siteSettings }) => {
         <div className="p-4 md:p-8">
             <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-8">효율성 분석</h2>
             
-            {/* --- ⬇️ (추가) 분석 기준 선택 탭 ⬇️ --- */}
             <div className="flex space-x-2 mb-6">
                 <button onClick={() => setAnalysisType('site')} className={`btn-tab ${analysisType === 'site' ? 'btn-tab-active' : ''}`}>사이트별 분석</button>
                 <button onClick={() => setAnalysisType('position')} className={`btn-tab ${analysisType === 'position' ? 'btn-tab-active' : ''}`}>모집유형별 분석</button>
@@ -79,7 +78,6 @@ const EfficiencyAnalysis = ({ jobs, applicants, siteSettings }) => {
                 </div>
             </div>
 
-            {/* --- ⬇️ (수정) 비용/순위 섹션은 'site' 분석 시에만 표시 ⬇️ --- */}
             {analysisType === 'site' && (
                 <>
                     <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
@@ -113,7 +111,6 @@ const EfficiencyAnalysis = ({ jobs, applicants, siteSettings }) => {
                     </div>
                 </>
             )}
-            {/* --- ⬆️ (수정) ⬆️ --- */}
         </div>
     );
 };
