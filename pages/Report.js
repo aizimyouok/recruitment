@@ -12,40 +12,31 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
         jobFilter: 'all'
     });
 
-    // --- ⬇️ (수정) 'sections' 상태를 세분화 ⬇️ ---
     // 2. 리포트 섹션 선택 상태
     const [sections, setSections] = useState({
-        // 채용 퍼널
-        funnel_summary: true, // 퍼널 요약 (그래픽)
-        funnel_rates: true,   // 단계별 전환율 (박스)
-        // 비용 대비 효과
+        funnel: true,
         roi: true,
-        // 사이트 트렌드
-        trends_lineChart: true, // 일별 추이 (라인)
-        trends_pieChart: true,  // 지원자 비율 (파이)
-        // 모집유형 분석
-        position_pieChart: true, // 유형별 비율 (파이)
-        position_summary: true, // 유형별 현황 (박스)
-        // 지원자 통계
-        demographics_gender: true, // 성별 분포
-        demographics_age: true,    // 연령대 분포
-        // 상세 데이터
-        rawData: true
+        trends: true,
+        positionAnalysis: true,
+        demographics: true,
+        rawData: true,
     });
-    // --- ⬆️ (수정) ⬆️ ---
     
+    // --- ⬇️ (수정) 'columns' 상태: 순서 변경 및 jobSite 추가, jobTitle 제거 ⬇️ ---
     // 3. 상세 목록 컬럼 선택 상태
     const [columns, setColumns] = useState({
         name: true,
-        jobTitle: true,
+        gender: true,
+        age: true,
+        jobSite: true, // '지원사이트'를 기본값으로 추가
         position: true,
         appliedDate: true,
         status: true,
-        gender: true,
-        age: true,
         contactInfo: false,
+        jobTitle: false, // '지원 공고'는 기본값에서 제외
     });
     const handleColumnToggle = (key) => setColumns(prev => ({ ...prev, [key]: !prev[key] }));
+    // --- ⬆️ (수정) ⬆️ ---
 
     // 4. 생성된 리포트 데이터 상태
     const [reportData, setReportData] = useState(null);
@@ -139,7 +130,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
         // --- 2. 리포트 데이터 계산 ---
         let newReportData = {};
 
-        // --- ⬇️ (수정) 데이터 생성 조건 변경 ⬇️ ---
         // (제안 1: 채용 퍼널)
         if (sections.funnel_summary || sections.funnel_rates) {
             const totalViews = filteredRecords.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
@@ -167,7 +157,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
             let totalCost = 0;
             const filteredSettings = siteSettings.filter(s => selectedSites.includes(s.site));
             filteredSettings.forEach(s => { totalCost += s.monthlyCost || 0; });
-            // 'funnel' 데이터가 생성 안됐을 수도 있으니, hires를 따로 계산
             const totalHires = filteredApplicants.filter(a => a.status === '입사').length;
             const costPerHire = totalHires > 0 ? (totalCost / totalHires).toLocaleString(undefined, { maximumFractionDigits: 0 }) : 0;
             newReportData.roi = { totalCost: totalCost.toLocaleString(), totalHires, costPerHire };
@@ -185,7 +174,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                     dateMap[r.date][site].views += r.viewsIncrease || 0;
                 });
             }
-            // (라인/파이 둘 다 지원자 데이터가 필요)
             filteredApplicants.forEach(a => {
                 const site = jobIdToJob[a.appliedJobId]?.site;
                 if (!site || !selectedSites.includes(site)) return;
@@ -279,14 +267,19 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
             });
             newReportData.demographics = { gender, ageGroups };
         }
-        // --- ⬆️ (수정) ⬆️ ---
 
         // (제안 5: 상세 데이터)
         if (sections.rawData) {
             newReportData.rawData = {
                 applicants: filteredApplicants.map(a => {
                     const job = jobIdToJob[a.appliedJobId];
-                    return { ...a, jobTitle: job?.title || 'N/A', position: job?.position || 'N/A' };
+                    return { 
+                        ...a, 
+                        jobTitle: job?.title || 'N/A', 
+                        position: job?.position || 'N/A',
+                        // --- ⬇️ (추가) 'jobSite' 데이터 추가 ⬇️ ---
+                        jobSite: job?.site || 'N/A' 
+                    };
                 })
             };
         }
@@ -392,7 +385,7 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                     </div>
                 </div>
                 
-                {/* --- ⬇️ (수정) '포함할 리포트 항목' UI 세분화 ⬇️ --- */}
+                {/* '포함할 리포트 항목' UI */}
                 <div className="bg-white rounded-xl shadow-lg p-4 mb-8">
                     <h3 className="text-xl font-semibold mb-4">2. 포함할 리포트 항목</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -434,7 +427,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
 
                     </div>
                 </div>
-                {/* --- ⬆️ (수정) ⬆️ --- */}
 
             </div>
 
@@ -452,8 +444,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                     </div>
                     
                     <div className="space-y-10">
-                        {/* --- ⬇️ (수정) 렌더링 조건 세분화 ⬇️ --- */}
-                        
                         {/* 섹션 1: 채용 퍼널 */}
                         {(sections.funnel_summary || sections.funnel_rates) && reportData.funnel && (
                             <ReportSection title="채용 퍼널 분석">
@@ -569,48 +559,65 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                                 </div>
                             </ReportSection>
                         )}
-                        {/* --- ⬆️ (수정) ⬆️ --- */}
 
                         {/* 섹션 5: 상세 데이터 */}
                         {sections.rawData && reportData.rawData && (
                             <ReportSection title="상세 지원자 목록">
                                 <div className="no-print mb-4 p-4 border rounded-lg">
                                     <h5 className="font-semibold mb-2">테이블 컬럼 표시/숨기기</h5>
+                                    {/* --- ⬇️ (수정) 컬럼 순서 및 라벨 변경 ⬇️ --- */}
                                     <div className="flex flex-wrap gap-4">
-                                        {Object.keys(columns).map(colKey => (
-                                            <label key={colKey} className="flex items-center space-x-2">
-                                                <input type="checkbox" checked={columns[colKey]} onChange={() => handleColumnToggle(colKey)} className="h-4 w-4" />
-                                                <span>{ {name: '이름', jobTitle: '지원 공고', position: '모집유형', appliedDate: '지원일', status: '상태', gender: '성별', age: '나이', contactInfo: '연락처'}[colKey] }</span>
+                                        {[
+                                            {key: 'name', label: '이름'},
+                                            {key: 'gender', label: '성별'},
+                                            {key: 'age', label: '나이'},
+                                            {key: 'jobSite', label: '지원사이트'},
+                                            {key: 'position', label: '모집유형'},
+                                            {key: 'appliedDate', label: '지원일'},
+                                            {key: 'status', label: '상태'},
+                                            {key: 'contactInfo', label: '연락처'},
+                                            {key: 'jobTitle', label: '지원 공고'}
+                                        ].map(col => (
+                                            <label key={col.key} className="flex items-center space-x-2">
+                                                <input type="checkbox" checked={columns[col.key]} onChange={() => handleColumnToggle(col.key)} className="h-4 w-4" />
+                                                <span>{col.label}</span>
                                             </label>
                                         ))}
                                     </div>
+                                    {/* --- ⬆️ (수정) ⬆️ --- */}
                                 </div>
                                 
                                 <div className="overflow-x-auto" style={{maxHeight: '400px'}}>
                                     <table className="w-full text-sm">
                                         <thead className="bg-gray-50 sticky top-0">
+                                            {/* --- ⬇️ (수정) 컬럼 순서 변경 ⬇️ --- */}
                                             <tr>
                                                 {columns.name && <th className="th-style">이름</th>}
-                                                {columns.jobTitle && <th className="th-style">지원 공고</th>}
+                                                {columns.gender && <th className="th-style">성별</th>}
+                                                {columns.age && <th className="th-style">나이</th>}
+                                                {columns.jobSite && <th className="th-style">지원사이트</th>}
                                                 {columns.position && <th className="th-style">모집유형</th>}
                                                 {columns.appliedDate && <th className="th-style">지원일</th>}
                                                 {columns.status && <th className="th-style">상태</th>}
-                                                {columns.gender && <th className="th-style">성별</th>}
-                                                {columns.age && <th className="th-style">나이</th>}
                                                 {columns.contactInfo && <th className="th-style">연락처</th>}
+                                                {columns.jobTitle && <th className="th-style">지원 공고</th>}
                                             </tr>
+                                            {/* --- ⬆️ (수정) ⬆️ --- */}
                                         </thead>
                                         <tbody className="divide-y divide-gray-200">
                                             {reportData.rawData.applicants.map(a => (
                                                 <tr key={a.id}>
+                                                    {/* --- ⬇️ (수정) 컬럼 순서 변경 및 jobSite 추가 ⬇️ --- */}
                                                     {columns.name && <td className="td-style">{a.name}</td>}
-                                                    {columns.jobTitle && <td className="td-style">{a.jobTitle}</td>}
+                                                    {columns.gender && <td className="td-style">{a.gender}</td>}
+                                                    {columns.age && <td className="td-style">{a.age}</td>}
+                                                    {columns.jobSite && <td className="td-style">{a.jobSite}</td>}
                                                     {columns.position && <td className="td-style">{a.position}</td>}
                                                     {columns.appliedDate && <td className="td-style">{a.appliedDate}</td>}
                                                     {columns.status && <td className="td-style"><ApplicantStatusBadge status={a.status} /></td>}
-                                                    {columns.gender && <td className="td-style">{a.gender}</td>}
-                                                    {columns.age && <td className="td-style">{a.age}</td>}
                                                     {columns.contactInfo && <td className="td-style">{a.contactInfo}</td>}
+                                                    {columns.jobTitle && <td className="td-style">{a.jobTitle}</td>}
+                                                    {/* --- ⬆️ (수정) ⬆️ --- */}
                                                 </tr>
                                             ))}
                                         </tbody>
