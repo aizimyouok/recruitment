@@ -7,6 +7,11 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
     const [dateRangeType, setDateRangeType] = useState('all');
     const [customRange, setCustomRange] = useState({ start: '', end: '' });
     const [siteFilter, setSiteFilter] = useState('all');
+    
+    // --- ⬇️ (추가) '모집유형' 필터 상태 ⬇️ ---
+    const [positionFilter, setPositionFilter] = useState('all');
+    // --- ⬆️ (추가) ⬆️ ---
+
     const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [widgetSettings, setWidgetSettings] = useState(() => {
         const saved = localStorage.getItem('dashboardWidgetSettings');
@@ -39,8 +44,13 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
     }, [dateRangeType, customRange]);
 
     const filteredData = useMemo(() => {
-        const filteredJobs = siteFilter === 'all' ? jobs : jobs.filter(j => j.site === siteFilter);
+        // --- ⬇️ (수정) '모집유형' 필터링 로직 추가 ⬇️ ---
+        const filteredJobs = jobs.filter(j => 
+            (siteFilter === 'all' || j.site === siteFilter) &&
+            (positionFilter === 'all' || j.position === positionFilter)
+        );
         const jobIds = filteredJobs.map(j => j.id);
+        // --- ⬆️ (수정) ⬆️ ---
 
         const filteredRecords = dailyRecords.filter(r => {
             const inSite = jobIds.includes(r.jobId);
@@ -61,33 +71,20 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
         });
 
         return { filteredJobs, filteredRecords, filteredApplicants };
-    }, [jobs, dailyRecords, applicants, siteFilter, dateRange, dateRangeType]);
+    }, [jobs, dailyRecords, applicants, siteFilter, positionFilter, dateRange, dateRangeType]); // 'positionFilter' 의존성 추가
 
     const stats = useMemo(() => {
         const activeJobs = filteredData.filteredJobs.filter(j => j.status === '진행중');
         const totalViews = filteredData.filteredRecords.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
         const totals = { applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 };
         
-        // --- ⬇️ 수정된 누적 집계 로직 ⬇️ ---
         filteredData.filteredApplicants.forEach(a => {
-            // '불합격' 상태가 아닌 경우에만 집계 (또는 모든 지원자 집계 후 단계별 누적)
-            // '지원'은 모든 지원자를 의미
             totals.applications++;
-
-            if (['컨택', '면접', '합격', '입사'].includes(a.status)) {
-                totals.contacts++;
-            }
-            if (['면접', '합격', '입사'].includes(a.status)) {
-                totals.interviews++;
-            }
-            if (['합격', '입사'].includes(a.status)) {
-                totals.offers++;
-            }
-            if (a.status === '입사') {
-                totals.hires++;
-            }
+            if (['컨택', '면접', '합격', '입사'].includes(a.status)) totals.contacts++;
+            if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++;
+            if (['합격', '입사'].includes(a.status)) totals.offers++;
+            if (a.status === '입사') totals.hires++;
         });
-        // --- ⬆️ 수정된 누적 집계 로직 ⬆️ ---
 
         const conversionRate = totals.applications > 0 ? ((totals.hires / totals.applications) * 100).toFixed(1) : 0;
 
@@ -99,6 +96,7 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
             else if (siteFilter === '사람인') targetHires = currentGoal.targetSaramin || 0;
             else if (siteFilter === '잡코리아') targetHires = currentGoal.targetJobkorea || 0;
             else if (siteFilter === '인크루트') targetHires = currentGoal.targetIncruit || 0;
+            // (참고: 모집유형별 목표는 3단계에서 추가 예정)
         }
         const achievementRate = targetHires > 0 ? ((totals.hires / targetHires) * 100).toFixed(0) : 0;
 
@@ -111,35 +109,29 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
             activeJobs: activeJobs.length, views: totalViews, ...totals,
             conversionRate, targetHires, achievementRate, costPerHire
         };
-    }, [filteredData, siteFilter, dateRange, goals, siteSettings]);
+    }, [filteredData, siteFilter, positionFilter, dateRange, goals, siteSettings]); // 'positionFilter' 의존성 추가
 
     // 레이더 차트 데이터
     const radarChartData = useMemo(() => {
         const sites = ['사람인', '잡코리아', '인크루트'];
-        const labels = ['조회수', '지원자', '컨택', '면접', '합격', '입사']; // '컨택' 추가
+        const labels = ['조회수', '지원자', '컨택', '면접', '합격', '입사'];
         const datasets = sites.map((site, index) => {
-            const siteJobs = jobs.filter(j => j.site === site);
+            // (참고: 이 차트는 '전체 기간' 기준이므로 상단 필터의 영향을 받지 않습니다)
+            const siteJobs = jobs.filter(j => j.site === site); 
             const jobIds = siteJobs.map(j => j.id);
             const siteRecords = dailyRecords.filter(r => jobIds.includes(r.jobId));
             const siteApplicants = applicants.filter(a => jobIds.includes(a.appliedJobId));
             
             const views = siteRecords.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
             const applications = siteApplicants.length;
-            
-            // --- ⬇️ 수정된 누적 집계 로직 (레이더 차트용) ⬇️ ---
-            let contacts = 0;
-            let interviews = 0;
-            let offers = 0;
-            let hires = 0;
+            let contacts = 0, interviews = 0, offers = 0, hires = 0;
             siteApplicants.forEach(a => {
                 if (['컨택', '면접', '합격', '입사'].includes(a.status)) contacts++;
                 if (['면접', '합격', '입사'].includes(a.status)) interviews++;
                 if (['합격', '입사'].includes(a.status)) offers++;
                 if (a.status === '입사') hires++;
             });
-            const data = [views, applications, contacts, interviews, offers, hires]; // 'contacts' 추가
-            // --- ⬆️ 수정된 누적 집계 로직 (레이더 차트용) ⬆️ ---
-
+            const data = [views, applications, contacts, interviews, offers, hires];
             const colors = ['rgba(59, 130, 246, 0.2)', 'rgba(16, 185, 129, 0.2)', 'rgba(245, 158, 11, 0.2)'];
             const borderColors = ['rgb(59, 130, 246)', 'rgb(16, 185, 129)', 'rgb(245, 158, 11)'];
             return {
@@ -149,6 +141,37 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
         });
         return { labels, datasets };
     }, [jobs, dailyRecords, applicants]);
+
+    
+    // --- ⬇️ (추가) '모집유형별' 현황 데이터 계산 ⬇️ ---
+    // (이 데이터는 상단의 '날짜', '사이트' 필터의 영향을 받습니다)
+    const positionSummaryData = useMemo(() => {
+        const positions = ['영업', '강사', '기타'];
+        // 'filteredData' 대신 'dateRange'와 'siteFilter'만 사용
+        const dateFilteredApplicants = applicants.filter(a => {
+             if (dateRange.start && dateRange.end && dateRangeType !== 'all') {
+                return a.appliedDate >= dateRange.start && a.appliedDate <= dateRange.end;
+            }
+            return true;
+        });
+        
+        return positions.map(pos => {
+            const posJobs = jobs.filter(j => j.position === pos && (siteFilter === 'all' || j.site === siteFilter));
+            const jobIds = posJobs.map(j => j.id);
+            const posApplicants = dateFilteredApplicants.filter(a => jobIds.includes(a.appliedJobId));
+            
+            const totals = { applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 };
+            posApplicants.forEach(a => {
+                totals.applications++;
+                if (['컨택', '면접', '합격', '입사'].includes(a.status)) totals.contacts++;
+                if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++;
+                if (['합격', '입사'].includes(a.status)) totals.offers++;
+                if (a.status === '입사') totals.hires++;
+            });
+            return { position: pos, ...totals };
+        });
+    }, [jobs, applicants, dateRange, dateRangeType, siteFilter]);
+    // --- ⬆️ (추가) ⬆️ ---
 
 
     return (
@@ -162,9 +185,11 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                     <h2 className="text-3xl font-bold text-gray-800">대시보드</h2>
                     <p className="text-gray-600">
                         {siteFilter === 'all' ? '전체 사이트' : siteFilter}
+                        {/* --- ⬇️ (추가) 필터 표시 ⬇️ --- */}
+                        {positionFilter === 'all' ? ' | 전체 유형' : ` | ${positionFilter}`}
                         {dateRangeType !== 'all' ? ` | ${dateRange.start} ~ ${dateRange.end}` : ' | 전체 기간'}
                     </p>
-                </div>
+                 </div>
                 <button onClick={() => setShowSettingsModal(true)} className="text-gray-500 hover:text-gray-800 p-2 rounded-full hover:bg-gray-100">
                     <Icon name="settings" size={24} />
                 </button>
@@ -186,11 +211,18 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                             <Input type="date" value={customRange.end} onChange={(e) => setCustomRange(p => ({...p, end: e.target.value}))} className="px-3 py-1 text-sm" />
                         </div>
                     )}
-                    <div>
+                    {/* --- ⬇️ (수정) 필터 영역 ⬇️ --- */}
+                    <div className="flex flex-wrap gap-4">
                         <Select value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)} className="px-3 py-2 text-sm font-medium">
                             <option value="all">전체 사이트</option> <option value="사람인">사람인</option> <option value="잡코리아">잡코리아</option> <option value="인크루트">인크루트</option>
                         </Select>
+                        {/* --- ⬇️ (추가) '모집유형' 필터 ⬇️ --- */}
+                        <Select value={positionFilter} onChange={(e) => setPositionFilter(e.target.value)} className="px-3 py-2 text-sm font-medium">
+                            <option value="all">전체 유형</option> <option value="영업">영업</option> <option value="강사">강사</option> <option value="기타">기타</option>
+                        </Select>
+                        {/* --- ⬆️ (추가) ⬆️ --- */}
                     </div>
+                    {/* --- ⬆️ (수정) ⬆️ --- */}
                 </div>
             </div>
 
@@ -232,6 +264,7 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                             </button>
                         )}
                     </div>
+                    {/* (참고: 이 컴포넌트는 내부적으로 'siteFilter'의 영향을 받지 않고 항상 모든 사이트를 표시합니다) */}
                     <SiteSummary jobs={jobs} dailyRecords={dailyRecords} applicants={applicants} filter={siteFilter === 'all' ? null : siteFilter} />
 
                     {widgetSettings.siteChart && showSiteChart && (
@@ -252,6 +285,31 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                     )}
                 </div>
             )}
+
+            {/* --- ⬇️ (추가) '모집유형별 현황' 위젯 ⬇️ --- */}
+            {/* (이 위젯은 대시보드 설정과 관계없이 항상 보임) */}
+            <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+                <h3 className="text-xl font-semibold mb-4">모집유형별 현황</h3>
+                <p className="text-sm text-gray-500 -mt-2 mb-4">
+                    (기준: {siteFilter === 'all' ? '전체 사이트' : siteFilter} | {dateRangeType === 'all' ? '전체 기간' : `${dateRange.start} ~ ${dateRange.end}`})
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {positionSummaryData.map(data => (
+                        <div key={data.position} className="border border-gray-200 rounded-lg p-4">
+                            <h4 className="font-semibold text-lg mb-3">{data.position}</h4>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                <div className="stat-item"><span className="stat-label">지원자:</span><span className="font-semibold">{data.applications}</span></div>
+                                <div className="stat-item"><span className="stat-label">컨택:</span><span className="font-semibold">{data.contacts}</span></div>
+                                <div className="stat-item"><span className="stat-label">면접:</span><span className="font-semibold">{data.interviews}</span></div>
+                                <div className="stat-item"><span className="stat-label">합격:</span><span className="font-semibold">{data.offers}</span></div>
+                                <div className="flex justify-between col-span-2 border-t pt-2 mt-1"><span className="text-gray-600 font-bold">입사:</span><span className="font-bold text-lg text-blue-600">{data.hires}명</span></div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+            {/* --- ⬆️ (추가) ⬆️ --- */}
+
         </div>
     );
 };
