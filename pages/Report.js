@@ -12,15 +12,27 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
         jobFilter: 'all'
     });
 
+    // --- ⬇️ (수정) 'sections' 상태를 세분화 ⬇️ ---
     // 2. 리포트 섹션 선택 상태
     const [sections, setSections] = useState({
-        funnel: true,
+        // 채용 퍼널
+        funnel_summary: true, // 퍼널 요약 (그래픽)
+        funnel_rates: true,   // 단계별 전환율 (박스)
+        // 비용 대비 효과
         roi: true,
-        trends: true,
-        positionAnalysis: true,
-        demographics: true,
-        rawData: true,
+        // 사이트 트렌드
+        trends_lineChart: true, // 일별 추이 (라인)
+        trends_pieChart: true,  // 지원자 비율 (파이)
+        // 모집유형 분석
+        position_pieChart: true, // 유형별 비율 (파이)
+        position_summary: true, // 유형별 현황 (박스)
+        // 지원자 통계
+        demographics_gender: true, // 성별 분포
+        demographics_age: true,    // 연령대 분포
+        // 상세 데이터
+        rawData: true
     });
+    // --- ⬆️ (수정) ⬆️ ---
     
     // 3. 상세 목록 컬럼 선택 상태
     const [columns, setColumns] = useState({
@@ -69,12 +81,10 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
     };
     const selectedPositions = useMemo(() => Object.keys(filters.positionFilter).filter(key => filters.positionFilter[key]), [filters.positionFilter]);
 
-    // --- ⬇️ (오류 수정) 삭제되었던 'handleSectionToggle' 함수를 다시 추가 ⬇️ ---
     // 섹션 선택 핸들러
     const handleSectionToggle = (key) => {
         setSections(prev => ({ ...prev, [key]: !prev[key] }));
     };
-    // --- ⬆️ (오류 수정) ⬆️ ---
 
     const jobIdToJob = useMemo(() => {
         return jobs.reduce((acc, job) => {
@@ -129,8 +139,9 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
         // --- 2. 리포트 데이터 계산 ---
         let newReportData = {};
 
+        // --- ⬇️ (수정) 데이터 생성 조건 변경 ⬇️ ---
         // (제안 1: 채용 퍼널)
-        if (sections.funnel) {
+        if (sections.funnel_summary || sections.funnel_rates) {
             const totalViews = filteredRecords.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
             const totals = { applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 };
             filteredApplicants.forEach(a => {
@@ -156,51 +167,59 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
             let totalCost = 0;
             const filteredSettings = siteSettings.filter(s => selectedSites.includes(s.site));
             filteredSettings.forEach(s => { totalCost += s.monthlyCost || 0; });
-            const totalHires = newReportData.funnel ? newReportData.funnel.kpi.hires : filteredApplicants.filter(a => a.status === '입사').length;
+            // 'funnel' 데이터가 생성 안됐을 수도 있으니, hires를 따로 계산
+            const totalHires = filteredApplicants.filter(a => a.status === '입사').length;
             const costPerHire = totalHires > 0 ? (totalCost / totalHires).toLocaleString(undefined, { maximumFractionDigits: 0 }) : 0;
             newReportData.roi = { totalCost: totalCost.toLocaleString(), totalHires, costPerHire };
         }
 
         // (제안 3: 기간별 트렌드)
-        if (sections.trends) {
+        if (sections.trends_lineChart || sections.trends_pieChart) {
             const dateMap = {}; 
-            filteredRecords.forEach(r => {
-                const site = jobIdToJob[r.jobId]?.site;
-                if (!site || !selectedSites.includes(site)) return;
-                dateMap[r.date] = dateMap[r.date] || {};
-                dateMap[r.date][site] = dateMap[r.date][site] || { views: 0, apps: 0 };
-                dateMap[r.date][site].views += r.viewsIncrease || 0;
-            });
+            if (sections.trends_lineChart) {
+                filteredRecords.forEach(r => {
+                    const site = jobIdToJob[r.jobId]?.site;
+                    if (!site || !selectedSites.includes(site)) return;
+                    dateMap[r.date] = dateMap[r.date] || {};
+                    dateMap[r.date][site] = dateMap[r.date][site] || { views: 0, apps: 0 };
+                    dateMap[r.date][site].views += r.viewsIncrease || 0;
+                });
+            }
+            // (라인/파이 둘 다 지원자 데이터가 필요)
             filteredApplicants.forEach(a => {
                 const site = jobIdToJob[a.appliedJobId]?.site;
                 if (!site || !selectedSites.includes(site)) return;
-                dateMap[a.appliedDate] = dateMap[a.appliedDate] || {};
-                dateMap[a.appliedDate][site] = dateMap[a.appliedDate][site] || { views: 0, apps: 0 };
-                dateMap[a.appliedDate][site].apps++;
+
+                if (sections.trends_lineChart) {
+                    dateMap[a.appliedDate] = dateMap[a.appliedDate] || {};
+                    dateMap[a.appliedDate][site] = dateMap[a.appliedDate][site] || { views: 0, apps: 0 };
+                    dateMap[a.appliedDate][site].apps++;
+                }
             });
 
             const allDates = Object.keys(dateMap).sort();
             const lineChartDatasets = [];
-            const colors = {
-                '사람인': { views: 'rgb(59, 130, 246)', apps: 'rgb(34, 197, 94)' },
-                '잡코리아': { views: 'rgb(245, 158, 11)', apps: 'rgb(234, 179, 8)' },
-                '인크루트': { views: 'rgb(139, 92, 246)', apps: 'rgb(217, 70, 239)' },
-            };
-            selectedSites.forEach(site => {
-                lineChartDatasets.push({
-                    label: `${site} - 조회수`,
-                    data: allDates.map(date => dateMap[date][site]?.views || 0),
-                    borderColor: colors[site]?.views || 'rgb(0,0,0)',
-                    tension: 0.1, borderDash: [5, 5]
+            if(sections.trends_lineChart) {
+                const colors = {
+                    '사람인': { views: 'rgb(59, 130, 246)', apps: 'rgb(34, 197, 94)' },
+                    '잡코리아': { views: 'rgb(245, 158, 11)', apps: 'rgb(234, 179, 8)' },
+                    '인크루트': { views: 'rgb(139, 92, 246)', apps: 'rgb(217, 70, 239)' },
+                };
+                selectedSites.forEach(site => {
+                    lineChartDatasets.push({
+                        label: `${site} - 조회수`,
+                        data: allDates.map(date => dateMap[date][site]?.views || 0),
+                        borderColor: colors[site]?.views || 'rgb(0,0,0)',
+                        tension: 0.1, borderDash: [5, 5]
+                    });
+                    lineChartDatasets.push({
+                        label: `${site} - 지원자`,
+                        data: allDates.map(date => dateMap[date][site]?.apps || 0),
+                        borderColor: colors[site]?.apps || 'rgb(100,100,100)',
+                        tension: 0.1
+                    });
                 });
-                lineChartDatasets.push({
-                    label: `${site} - 지원자`,
-                    data: allDates.map(date => dateMap[date][site]?.apps || 0),
-                    borderColor: colors[site]?.apps || 'rgb(100,100,100)',
-                    tension: 0.1
-                });
-            });
-            const lineChartData = { labels: allDates, datasets: lineChartDatasets };
+            }
 
             const siteData = selectedSites.map(site => {
                 const siteJobIds = jobs.filter(j => j.site === site).map(j => j.id);
@@ -211,11 +230,11 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                 labels: siteData.map(d => d.site),
                 datasets: [{ data: siteData.map(d => d.count), backgroundColor: ['rgba(59, 130, 246, 0.8)', 'rgba(16, 185, 129, 0.8)', 'rgba(245, 158, 11, 0.8)'].slice(0, siteData.length) }]
             };
-            newReportData.trends = { lineChartData, pieChartData };
+            newReportData.trends = { lineChartData: { labels: allDates, datasets: lineChartDatasets }, pieChartData };
         }
         
         // '모집유형별 분석' 섹션 데이터
-        if (sections.positionAnalysis) {
+        if (sections.position_pieChart || sections.position_summary) {
             const posStats = {};
             selectedPositions.forEach(pos => {
                 posStats[pos] = { applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 };
@@ -243,7 +262,7 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
         }
 
         // (제안 4: 지원자 통계)
-        if (sections.demographics) {
+        if (sections.demographics_gender || sections.demographics_age) {
             const gender = { '남': 0, '여': 0 };
             const ageGroups = { '20대 미만': 0, '20대': 0, '30대': 0, '40대': 0, '50대 이상': 0 };
             filteredApplicants.forEach(a => {
@@ -260,6 +279,7 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
             });
             newReportData.demographics = { gender, ageGroups };
         }
+        // --- ⬆️ (수정) ⬆️ ---
 
         // (제안 5: 상세 데이터)
         if (sections.rawData) {
@@ -372,18 +392,50 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                     </div>
                 </div>
                 
-                {/* 섹션 선택 */}
+                {/* --- ⬇️ (수정) '포함할 리포트 항목' UI 세분화 ⬇️ --- */}
                 <div className="bg-white rounded-xl shadow-lg p-4 mb-8">
                     <h3 className="text-xl font-semibold mb-4">2. 포함할 리포트 항목</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                        <label className="flex items-center space-x-2 p-3 bg-gray-50 rounded-lg"><input type="checkbox" checked={sections.funnel} onChange={() => handleSectionToggle('funnel')} className="h-5 w-5" /> <span>채용 퍼널</span></label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        
+                        <div className="p-3 bg-gray-50 rounded-lg space-y-2">
+                            <span className="font-semibold text-gray-700">채용 퍼널</span>
+                            <div className="space-y-2 pl-4">
+                                <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={sections.funnel_summary} onChange={() => handleSectionToggle('funnel_summary')} /> <span>퍼널 요약</span></label>
+                                <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={sections.funnel_rates} onChange={() => handleSectionToggle('funnel_rates')} /> <span>단계별 전환율</span></label>
+                            </div>
+                        </div>
+
+                        <div className="p-3 bg-gray-50 rounded-lg space-y-2">
+                            <span className="font-semibold text-gray-700">사이트 트렌드</span>
+                            <div className="space-y-2 pl-4">
+                                <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={sections.trends_lineChart} onChange={() => handleSectionToggle('trends_lineChart')} /> <span>일별 추이 (라인)</span></label>
+                                <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={sections.trends_pieChart} onChange={() => handleSectionToggle('trends_pieChart')} /> <span>지원자 비율 (파이)</span></label>
+                            </div>
+                        </div>
+
+                        <div className="p-3 bg-gray-50 rounded-lg space-y-2">
+                            <span className="font-semibold text-gray-700">모집유형 분석</span>
+                            <div className="space-y-2 pl-4">
+                                <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={sections.position_pieChart} onChange={() => handleSectionToggle('position_pieChart')} /> <span>지원자 비율 (파이)</span></label>
+                                <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={sections.position_summary} onChange={() => handleSectionToggle('position_summary')} /> <span>유형별 현황</span></label>
+                            </div>
+                        </div>
+
+                        <div className="p-3 bg-gray-50 rounded-lg space-y-2">
+                            <span className="font-semibold text-gray-700">지원자 통계</span>
+                            <div className="space-y-2 pl-4">
+                                <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={sections.demographics_gender} onChange={() => handleSectionToggle('demographics_gender')} /> <span>성별 분포</span></label>
+                                <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={sections.demographics_age} onChange={() => handleSectionToggle('demographics_age')} /> <span>연령대 분포</span></label>
+                            </div>
+                        </div>
+
                         <label className="flex items-center space-x-2 p-3 bg-gray-50 rounded-lg"><input type="checkbox" checked={sections.roi} onChange={() => handleSectionToggle('roi')} className="h-5 w-5" /> <span>비용 대비 효과</span></label>
-                        <label className="flex items-center space-x-2 p-3 bg-gray-50 rounded-lg"><input type="checkbox" checked={sections.trends} onChange={() => handleSectionToggle('trends')} className="h-5 w-5" /> <span>사이트 트렌드</span></label>
-                        <label className="flex items-center space-x-2 p-3 bg-gray-50 rounded-lg"><input type="checkbox" checked={sections.positionAnalysis} onChange={() => handleSectionToggle('positionAnalysis')} className="h-5 w-5" /> <span>모집유형 분석</span></label>
-                        <label className="flex items-center space-x-2 p-3 bg-gray-50 rounded-lg"><input type="checkbox" checked={sections.demographics} onChange={() => handleSectionToggle('demographics')} className="h-5 w-5" /> <span>지원자 통계</span></label>
                         <label className="flex items-center space-x-2 p-3 bg-gray-50 rounded-lg"><input type="checkbox" checked={sections.rawData} onChange={() => handleSectionToggle('rawData')} className="h-5 w-5" /> <span>상세 데이터</span></label>
+
                     </div>
                 </div>
+                {/* --- ⬆️ (수정) ⬆️ --- */}
+
             </div>
 
             {/* --- 2. 리포트 결과 (인쇄 영역) --- */}
@@ -400,25 +452,33 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                     </div>
                     
                     <div className="space-y-10">
+                        {/* --- ⬇️ (수정) 렌더링 조건 세분화 ⬇️ --- */}
+                        
                         {/* 섹션 1: 채용 퍼널 */}
-                        {sections.funnel && reportData.funnel && (
+                        {(sections.funnel_summary || sections.funnel_rates) && reportData.funnel && (
                             <ReportSection title="채용 퍼널 분석">
-                                <div className="flex items-center justify-around flex-wrap gap-4 p-4 bg-gray-50 rounded-lg mb-6">
-                                    <ConversionStep label="조회" value={reportData.funnel.kpi.views} /> <Icon name="chevron-right" />
-                                    <ConversionStep label="지원" value={reportData.funnel.kpi.applications} /> <Icon name="chevron-right" />
-                                    <ConversionStep label="컨택" value={reportData.funnel.kpi.contacts} /> <Icon name="chevron-right" />
-                                    <ConversionStep label="면접" value={reportData.funnel.kpi.interviews} /> <Icon name="chevron-right" />
-                                    <ConversionStep label="합격" value={reportData.funnel.kpi.offers} /> <Icon name="chevron-right" />
-                                    <ConversionStep label="입사" value={reportData.funnel.kpi.hires} />
-                                </div>
-                                <h4 className="text-lg font-semibold mb-3">단계별 전환율</h4>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    <StatBox label="지원 → 컨택" value={`${reportData.funnel.rates.appToContact}%`} />
-                                    <StatBox label="컨택 → 면접" value={`${reportData.funnel.rates.contactToInterview}%`} />
-                                    <StatBox label="면접 → 합격" value={`${reportData.funnel.rates.interviewToOffer}%`} />
-                                    <StatBox label="합격 → 입사" value={`${reportData.funnel.rates.offerToHire}%`} />
-                                    <StatBox label="총 전환율 (지원→입사)" value={`${reportData.funnel.rates.overall}%`} className="col-span-2 md:col-span-4 bg-blue-50 text-blue-700" />
-                                </div>
+                                {sections.funnel_summary && (
+                                    <div className="flex items-center justify-around flex-wrap gap-4 p-4 bg-gray-50 rounded-lg mb-6">
+                                        <ConversionStep label="조회" value={reportData.funnel.kpi.views} /> <Icon name="chevron-right" />
+                                        <ConversionStep label="지원" value={reportData.funnel.kpi.applications} /> <Icon name="chevron-right" />
+                                        <ConversionStep label="컨택" value={reportData.funnel.kpi.contacts} /> <Icon name="chevron-right" />
+                                        <ConversionStep label="면접" value={reportData.funnel.kpi.interviews} /> <Icon name="chevron-right" />
+                                        <ConversionStep label="합격" value={reportData.funnel.kpi.offers} /> <Icon name="chevron-right" />
+                                        <ConversionStep label="입사" value={reportData.funnel.kpi.hires} />
+                                    </div>
+                                )}
+                                {sections.funnel_rates && (
+                                    <>
+                                        <h4 className="text-lg font-semibold mb-3">단계별 전환율</h4>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            <StatBox label="지원 → 컨택" value={`${reportData.funnel.rates.appToContact}%`} />
+                                            <StatBox label="컨택 → 면접" value={`${reportData.funnel.rates.contactToInterview}%`} />
+                                            <StatBox label="면접 → 합격" value={`${reportData.funnel.rates.interviewToOffer}%`} />
+                                            <StatBox label="합격 → 입사" value={`${reportData.funnel.rates.offerToHire}%`} />
+                                            <StatBox label="총 전환율 (지원→입사)" value={`${reportData.funnel.rates.overall}%`} className="col-span-2 md:col-span-4 bg-blue-50 text-blue-700" />
+                                        </div>
+                                    </>
+                                )}
                             </ReportSection>
                         )}
                         
@@ -434,62 +494,82 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                         )}
 
                         {/* 섹션 3: 기간별 트렌드 */}
-                        {sections.trends && reportData.trends && (
+                        {(sections.trends_lineChart || sections.trends_pieChart) && reportData.trends && (
                             <ReportSection title="사이트별 트렌드">
-                                <h4 className="text-lg font-semibold mb-3">일별 조회수 및 지원자 추이 (사이트별)</h4>
-                                <div className="w-full h-64 mb-6"><ChartComponent type="line" data={reportData.trends.lineChartData} options={{ scales: { y: { beginAtZero: true } } }} /></div>
-                                <h4 className="text-lg font-semibold mb-3">사이트별 지원자 비율</h4>
-                                <div className="w-full h-64"><ChartComponent type="pie" data={reportData.trends.pieChartData} options={{ plugins: { datalabels: { display: true, color: 'white', font: { weight: 'bold', size: 12 }, formatter: (value, ctx) => { const dataset = ctx.chart.data.datasets[0]; const total = dataset.data.reduce((acc, data) => acc + data, 0); const percentage = (value * 100 / total).toFixed(1) + '%'; return `${value}명\n(${percentage})`; } }, tooltip: { callbacks: { label: (ctx) => { const label = ctx.label || ''; const value = ctx.raw || 0; const dataset = ctx.dataset.data; const total = dataset.reduce((acc, data) => acc + data, 0); const percentage = (value * 100 / total).toFixed(1) + '%'; return `${label}: ${value}명 (${percentage})`; } } } } }} /></div>
+                                {sections.trends_lineChart && (
+                                    <>
+                                        <h4 className="text-lg font-semibold mb-3">일별 조회수 및 지원자 추이 (사이트별)</h4>
+                                        <div className="w-full h-64 mb-6"><ChartComponent type="line" data={reportData.trends.lineChartData} options={{ scales: { y: { beginAtZero: true } } }} /></div>
+                                    </>
+                                )}
+                                {sections.trends_pieChart && (
+                                    <>
+                                        <h4 className="text-lg font-semibold mb-3">사이트별 지원자 비율</h4>
+                                        <div className="w-full h-64"><ChartComponent type="pie" data={reportData.trends.pieChartData} options={{ plugins: { datalabels: { display: true, color: 'white', font: { weight: 'bold', size: 12 }, formatter: (value, ctx) => { const dataset = ctx.chart.data.datasets[0]; const total = dataset.data.reduce((acc, data) => acc + data, 0); const percentage = (value * 100 / total).toFixed(1) + '%'; return `${value}명\n(${percentage})`; } }, tooltip: { callbacks: { label: (ctx) => { const label = ctx.label || ''; const value = ctx.raw || 0; const dataset = ctx.dataset.data; const total = dataset.reduce((acc, data) => acc + data, 0); const percentage = (value * 100 / total).toFixed(1) + '%'; return `${label}: ${value}명 (${percentage})`; } } } } }} /></div>
+                                    </>
+                                )}
                             </ReportSection>
                         )}
                         
                         {/* '모집유형별 분석' 섹션 */}
-                        {sections.positionAnalysis && reportData.positionAnalysis && (
+                        {(sections.position_pieChart || sections.position_summary) && reportData.positionAnalysis && (
                              <ReportSection title="모집유형별 분석">
-                                <h4 className="text-lg font-semibold mb-3">모집유형별 지원자 비율</h4>
-                                <div className="w-full h-64 mb-6"><ChartComponent type="pie" data={reportData.positionAnalysis.pieChartData} options={{ plugins: { datalabels: { display: true, color: 'white', font: { weight: 'bold', size: 12 }, formatter: (value, ctx) => { const dataset = ctx.chart.data.datasets[0]; const total = dataset.data.reduce((acc, data) => acc + data, 0); const percentage = (value * 100 / total).toFixed(1) + '%'; return `${value}명\n(${percentage})`; } }, tooltip: { callbacks: { label: (ctx) => { const label = ctx.label || ''; const value = ctx.raw || 0; const dataset = ctx.dataset.data; const total = dataset.reduce((acc, data) => acc + data, 0); const percentage = (value * 100 / total).toFixed(1) + '%'; return `${label}: ${value}명 (${percentage})`; } } } } }} /></div>
-                                
-                                <h4 className="text-lg font-semibold mb-3">모집유형별 현황</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {Object.entries(reportData.positionAnalysis.summaryData).map(([pos, data]) => (
-                                        <div key={pos} className="border border-gray-200 rounded-lg p-4">
-                                            <h5 className="font-semibold text-lg mb-3">{pos}</h5>
-                                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                                                <div className="stat-item"><span className="stat-label">지원자:</span><span className="font-semibold">{data.applications}</span></div>
-                                                <div className="stat-item"><span className="stat-label">컨택:</span><span className="font-semibold">{data.contacts}</span></div>
-                                                <div className="stat-item"><span className="stat-label">면접:</span><span className="font-semibold">{data.interviews}</span></div>
-                                                <div className="stat-item"><span className="stat-label">합격:</span><span className="font-semibold">{data.offers}</span></div>
-                                                <div className="flex justify-between col-span-2 border-t pt-2 mt-1"><span className="text-gray-600 font-bold">입사:</span><span className="font-bold text-lg text-blue-600">{data.hires}명</span></div>
-                                            </div>
+                                {sections.position_pieChart && (
+                                    <>
+                                        <h4 className="text-lg font-semibold mb-3">모집유형별 지원자 비율</h4>
+                                        <div className="w-full h-64 mb-6"><ChartComponent type="pie" data={reportData.positionAnalysis.pieChartData} options={{ plugins: { datalabels: { display: true, color: 'white', font: { weight: 'bold', size: 12 }, formatter: (value, ctx) => { const dataset = ctx.chart.data.datasets[0]; const total = dataset.data.reduce((acc, data) => acc + data, 0); const percentage = (value * 100 / total).toFixed(1) + '%'; return `${value}명\n(${percentage})`; } }, tooltip: { callbacks: { label: (ctx) => { const label = ctx.label || ''; const value = ctx.raw || 0; const dataset = ctx.dataset.data; const total = dataset.reduce((acc, data) => acc + data, 0); const percentage = (value * 100 / total).toFixed(1) + '%'; return `${label}: ${value}명 (${percentage})`; } } } } }} /></div>
+                                    </>
+                                )}
+                                {sections.position_summary && (
+                                    <>
+                                        <h4 className="text-lg font-semibold mb-3">모집유형별 현황</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {Object.entries(reportData.positionAnalysis.summaryData).map(([pos, data]) => (
+                                                <div key={pos} className="border border-gray-200 rounded-lg p-4">
+                                                    <h5 className="font-semibold text-lg mb-3">{pos}</h5>
+                                                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                                        <div className="stat-item"><span className="stat-label">지원자:</span><span className="font-semibold">{data.applications}</span></div>
+                                                        <div className="stat-item"><span className="stat-label">컨택:</span><span className="font-semibold">{data.contacts}</span></div>
+                                                        <div className="stat-item"><span className="stat-label">면접:</span><span className="font-semibold">{data.interviews}</span></div>
+                                                        <div className="stat-item"><span className="stat-label">합격:</span><span className="font-semibold">{data.offers}</span></div>
+                                                        <div className="flex justify-between col-span-2 border-t pt-2 mt-1"><span className="text-gray-600 font-bold">입사:</span><span className="font-bold text-lg text-blue-600">{data.hires}명</span></div>
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
-                                    ))}
-                                </div>
+                                    </>
+                                )}
                              </ReportSection>
                         )}
 
                         {/* 섹션 4: 지원자 통계 */}
-                        {sections.demographics && reportData.demographics && (
+                        {(sections.demographics_gender || sections.demographics_age) && reportData.demographics && (
                             <ReportSection title="지원자 통계">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <h4 className="text-lg font-semibold mb-3">성별 분포</h4>
-                                        <div className="space-y-2">
-                                            {Object.entries(reportData.demographics.gender).filter(([key, value]) => value > 0).map(([key, value]) => (
-                                                <div key={key} className="flex justify-between p-3 bg-gray-50 rounded"><span>{key}</span><span className="font-bold">{value}명</span></div>
-                                            ))}
+                                    {sections.demographics_gender && (
+                                        <div>
+                                            <h4 className="text-lg font-semibold mb-3">성별 분포</h4>
+                                            <div className="space-y-2">
+                                                {Object.entries(reportData.demographics.gender).filter(([key, value]) => value > 0).map(([key, value]) => (
+                                                    <div key={key} className="flex justify-between p-3 bg-gray-50 rounded"><span>{key}</span><span className="font-bold">{value}명</span></div>
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div>
-                                        <h4 className="text-lg font-semibold mb-3">연령대 분포</h4>
-                                        <div className="space-y-2">
-                                            {Object.entries(reportData.demographics.ageGroups).filter(([key, value]) => value > 0).map(([key, value]) => (
-                                                <div key={key} className="flex justify-between p-3 bg-gray-50 rounded"><span>{key}</span><span className="font-bold">{value}명</span></div>
-                                            ))}
+                                    )}
+                                    {sections.demographics_age && (
+                                        <div>
+                                            <h4 className="text-lg font-semibold mb-3">연령대 분포</h4>
+                                            <div className="space-y-2">
+                                                {Object.entries(reportData.demographics.ageGroups).filter(([key, value]) => value > 0).map(([key, value]) => (
+                                                    <div key={key} className="flex justify-between p-3 bg-gray-50 rounded"><span>{key}</span><span className="font-bold">{value}명</span></div>
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
                                 </div>
                             </ReportSection>
                         )}
+                        {/* --- ⬆️ (수정) ⬆️ --- */}
 
                         {/* 섹션 5: 상세 데이터 */}
                         {sections.rawData && reportData.rawData && (
