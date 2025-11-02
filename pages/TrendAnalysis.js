@@ -7,20 +7,15 @@ const TrendAnalysis = ({ jobs, dailyRecords, applicants }) => {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     
-    // --- ⬇️ (추가) '모집유형' 필터 상태 ⬇️ ---
     const [positionFilter, setPositionFilter] = useState('all');
 
-    // --- ⬇️ (수정) '모집유형' 필터를 반영하도록 데이터 필터링 ⬇️ ---
     const filteredData = useMemo(() => {
-        // 1. '모집유형'에 따라 공고 ID 필터링
         const filteredJobs = jobs.filter(j => positionFilter === 'all' || j.position === positionFilter);
         const jobIds = filteredJobs.map(j => j.id);
 
-        // 2. 필터링된 공고 ID를 기준으로 레코드와 지원자 필터링
         let filteredRecords = dailyRecords.filter(r => jobIds.includes(r.jobId));
         let filteredApplicants = applicants.filter(a => jobIds.includes(a.appliedJobId));
         
-        // 3. 기간 필터 적용
         if (period !== 'all') {
             let startDt, endDt = new Date();
             if (period === 'custom' && startDate && endDate) { startDt = new Date(startDate); endDt = new Date(endDate); }
@@ -32,9 +27,8 @@ const TrendAnalysis = ({ jobs, dailyRecords, applicants }) => {
         }
         
         return { filteredRecords, filteredApplicants };
-    }, [jobs, dailyRecords, applicants, period, startDate, endDate, positionFilter]); // 'positionFilter' 의존성 추가
+    }, [jobs, dailyRecords, applicants, period, startDate, endDate, positionFilter]); 
 
-    // 일별 트렌드 데이터
     const trendData = useMemo(() => {
         const { filteredRecords, filteredApplicants } = filteredData;
         
@@ -50,14 +44,12 @@ const TrendAnalysis = ({ jobs, dailyRecords, applicants }) => {
             if (applicant.status === '입사') dateMap[date].hires++;
         });
         return Object.values(dateMap).sort((a, b) => a.date.localeCompare(b.date));
-    }, [filteredData]); // 'filteredData'로 의존성 변경
+    }, [filteredData]); 
 
-    // 사이트별 비율 데이터
     const siteTrendData = useMemo(() => {
-        const { filteredApplicants } = filteredData; // '모집유형'과 '기간'이 필터링된 지원자 사용
+        const { filteredApplicants } = filteredData; 
         const sites = ['사람인', '잡코리아', '인크루트'];
         
-        // jobIdToSite 맵 생성
         const jobIdToSite = jobs.reduce((acc, job) => {
             acc[job.id] = job.site;
             return acc;
@@ -73,7 +65,7 @@ const TrendAnalysis = ({ jobs, dailyRecords, applicants }) => {
         });
         
         return sites.map(site => ({ site, applications: siteCounts[site] }));
-    }, [jobs, filteredData]); // 'filteredData'로 의존성 변경
+    }, [jobs, filteredData]); 
 
     const lineChartData = {
         labels: trendData.map(d => d.date),
@@ -99,20 +91,19 @@ const TrendAnalysis = ({ jobs, dailyRecords, applicants }) => {
                     </div>
                     {period === 'custom' && (<div className="flex items-center space-x-2"><Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="py-2" /><span>~</span><Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="py-2" /></div>)}
                     
-                    {/* --- ⬇️ (추가) '모집유형' 필터 ⬇️ --- */}
                     <div className="ml-auto">
+                         {/* --- ⬇️ (수정) '기타' 옵션 제거 ⬇️ --- */}
                          <Select value={positionFilter} onChange={(e) => setPositionFilter(e.target.value)} className="px-3 py-2 text-sm font-medium">
-                            <option value="all">전체 유형</option> <option value="영업">영업</option> <option value="강사">강사</option> <option value="기타">기타</option>
+                            <option value="all">전체 유형</option> <option value="영업">영업</option> <option value="강사">강사</option>
                         </Select>
+                        {/* --- ⬆️ (수정) ⬆️ --- */}
                     </div>
-                    {/* --- ⬆️ (추가) ⬆️ --- */}
                 </div>
             </div>
             <div className="bg-white rounded-xl shadow-lg p-6 mb-8"><h3 className="text-xl font-semibold mb-4">일별 채용 단계 추이</h3><div style={{ height: '350px' }}><ChartComponent type="line" data={lineChartData} options={{ scales: { y: { beginAtZero: true } } }} /></div></div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-white rounded-xl shadow-lg p-6">
                     <h3 className="text-xl font-semibold mb-4">사이트별 지원자 비율</h3>
-                    {/* --- ⬇️ (수정) 파이 차트 옵션 (datalabels) ⬇️ --- */}
                     <div style={{ height: '280px' }}><ChartComponent type="pie" data={pieChartData} options={{
                          plugins: {
                             datalabels: {
@@ -129,7 +120,6 @@ const TrendAnalysis = ({ jobs, dailyRecords, applicants }) => {
                             }
                          }
                     }} /></div>
-                    {/* --- ⬆️ (수정) ⬆️ --- */}
                 </div>
                 <div className="bg-white rounded-xl shadow-lg p-6">
                     <h3 className="text-xl font-semibold mb-4">누적 데이터 (총 지원자)</h3>
