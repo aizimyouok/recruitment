@@ -94,12 +94,6 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
         }
         const achievementRate = targetHires > 0 ? ((totals.hires / targetHires) * 100).toFixed(0) : 0;
 
-        // (삭제) 1인당 채용 비용 계산 로직 (카드에서 제거됨)
-        // let totalCost = 0;
-        // const filteredSettings = siteFilter === 'all' ? siteSettings : siteSettings.filter(s => s.site === siteFilter);
-        // filteredSettings.forEach(s => { totalCost += s.monthlyCost || 0; });
-        // const costPerHire = totals.hires > 0 ? (totalCost / totals.hires).toLocaleString(undefined, { maximumFractionDigits: 0 }) : 0;
-
         return {
             activeJobs: activeJobs.length, views: totalViews, ...totals,
             conversionRate, targetHires, achievementRate
@@ -185,9 +179,12 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
 
             {/* --- ⬇️ (수정) 필터 바 레이아웃 수정 ⬇️ --- */}
             <div className="bg-white rounded-xl shadow-lg p-4 mb-8">
-                {/* 'items-center' 추가, 'gap-4' 유지 */}
-                <div className="flex flex-wrap items-center gap-4">
-                    {/* 기간 필터 (좌측) */}
+                {/* 'justify-between'을 추가하여 좌우 정렬을 시도하고, 
+                  'flex-wrap'으로 화면이 작을 때 줄바꿈이 되도록 함 
+                */}
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                    
+                    {/* 1. 기간 필터 그룹 (flex-wrap 추가) */}
                     <div className="flex flex-wrap items-center gap-4">
                         <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
                             {['all', 'week', 'month', 'custom'].map(type => (
@@ -205,9 +202,8 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                         )}
                     </div>
                     
-                    {/* 사이트/유형 필터 (우측) */}
-                    {/* 'ml-auto'를 사용해 이 div를 우측으로 밀어냄 */}
-                    <div className="flex flex-wrap gap-4 ml-auto">
+                    {/* 2. 사이트/유형 필터 그룹 (ml-auto 제거, flex-wrap 추가) */}
+                    <div className="flex flex-wrap gap-4">
                         <Select value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)} className="px-3 py-2 text-sm font-medium">
                             <option value="all">전체 사이트</option> <option value="사람인">사람인</option> <option value="잡코리아">잡코리아</option> <option value="인크루트">인크루트</option>
                         </Select>
@@ -224,9 +220,7 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     <KPICard title="진행중인 공고" value={stats.activeJobs} icon="briefcase" color="blue" />
                     <KPICard title="총 지원자" value={stats.applications} icon="users" color="green" />
-                    {/* --- ⬇️ (수정) '채용 비용'을 '총 면접'으로 변경 ⬇️ --- */}
                     <KPICard title="총 면접 인원" value={stats.interviews} icon="user-check" color="purple" />
-                    {/* --- ⬆️ (수정) ⬆️ --- */}
                     <KPICard title="입사자" value={`${stats.hires} / ${stats.targetHires}`} icon="user-plus" color="orange" subText={stats.targetHires > 0 ? `달성률 ${stats.achievementRate}%` : '목표 미설정'}/>
                 </div>
             )}
