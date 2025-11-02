@@ -13,6 +13,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
@@ -22,32 +23,7 @@
             height: 24px;
             vertical-align: middle;
         }
-        /* 모달 트랜지션용 */
-        .modal-enter { opacity: 0; transform: scale(0.95); }
-        .modal-enter-active { opacity: 1; transform: scale(1); transition: all 200ms ease-out; }
-        .modal-exit { opacity: 1; transform: scale(1); }
-        .modal-exit-active { opacity: 0; transform: scale(0.95); transition: all 200ms ease-in; }
-
-        /* 사이드바 트랜지션 */
-        .sidebar {
-            transition: transform 0.3s ease-in-out;
-        }
-        /* 테이블 셀 줄바꿈 방지 */
-        .table-cell-nowrap {
-            white-space: nowrap;
-        }
-        /* 지원자 관리 필터 너비 */
-        .filter-select {
-            min-width: 120px;
-        }
-        /* 레이더 차트 컨테이너 */
-        .radar-chart-container {
-            position: relative;
-            height: 400px; /* 필요에 따라 조절 */
-            width: 100%;
-        }
-        
-        /* --- ⬇️ 추가된 인쇄 스타일 ⬇️ --- */
+        /* ... (기존 스타일) ... */
         @media print {
             body * {
                 visibility: hidden;
@@ -60,21 +36,18 @@
                 left: 0;
                 top: 0;
                 width: 100%;
-                padding: 1.5rem; /* 인쇄 여백 */
+                padding: 1.5rem;
             }
             .no-print {
                 display: none !important;
             }
-            /* 차트가 인쇄될 수 있도록 */
             canvas {
                 max-width: 100% !important;
             }
-            /* 페이지 나뉨 방지 (선택적) */
             .report-section {
                 page-break-inside: avoid;
             }
         }
-        /* --- ⬆️ 추가된 인쇄 스타일 ⬆️ --- */
     </style>
 </head>
 <body class="bg-gray-50">
@@ -98,7 +71,6 @@
     <script type="text/babel" src="pages/SiteComparison.js"></script>
     <script type="text/babel" src="pages/EfficiencyAnalysis.js"></script>
     <script type="text/babel" src="pages/TrendAnalysis.js"></script>
-    
     <script type="text/babel" src="pages/Report.js"></script>
     <script type="text/babel" src="pages/Settings.js"></script>
 
@@ -122,6 +94,13 @@
             }
         };
 
+        // --- ⬇️ (추가) 차트 플러그인 전역 등록 ⬇️ ---
+        // (참고: ChartDataLabels는 위에서 로드한 스크립트를 통해 접근 가능)
+        Chart.register(ChartDataLabels);
+        // 기본적으로 모든 파이 차트에서 라벨 숨기기 (필요한 곳에서만 켜기)
+        Chart.defaults.plugins.datalabels.display = false;
+        // --- ⬆️ (추가) ⬆️ ---
+
         // --- 메인 앱 ---
         const App = () => {
             const [user, setUser] = useState(null);
@@ -138,8 +117,6 @@
             const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
             useEffect(() => {
-                // --- Firebase 설정 직접 입력 ---
-                // 보안을 위해 실제 키는 환경 변수 등으로 관리하는 것이 좋습니다.
                 const firebaseConfig = {
                   apiKey: "AIzaSyAObneOsBpf4up7PRQLx6KUM_ixvuZqcUQ",
                   authDomain: "recruitment-system-8f83c.firebaseapp.com",
@@ -155,36 +132,28 @@
                     const unsubscribe = auth.onAuthStateChanged(firebaseUser => {
                         if (firebaseUser) {
                             setUser(firebaseUser);
-                            loadData(); // 로그인 시 데이터 로드
+                            loadData(); 
                         } else {
                             setUser(null);
-                            // 로그아웃 시 데이터 초기화
                             setJobs([]); setDailyRecords([]); setApplicants([]);
                             setSiteSettings([]); setGoals([]);
                         }
                         setAuthLoading(false);
                     });
-                    return () => unsubscribe(); // 컴포넌트 언마운트 시 리스너 정리
+                    return () => unsubscribe();
                 } else {
                     console.error("Firebase 초기화 실패!");
-                    // 사용자에게 알림 (alert 대신 더 나은 UI 사용 가능)
-                    // alert("Firebase 초기화에 실패했습니다. 코드를 확인해주세요.");
                     setAuthLoading(false);
                     setLoading(false);
                 }
-            }, []); // 앱 마운트 시 1회만 실행
+            }, []); 
 
             const handleLogin = () => {
-                 setAuthLoading(true); // 로그인 시도 시 로딩 상태로 변경
+                 setAuthLoading(true);
             }
 
-            // 데이터 로드 함수
             const loadData = useCallback(async () => {
-                if (!auth.currentUser) return; // 인증된 사용자만 데이터 로드
-                 
-                // 데이터 로드가 이미 진행 중이면 중복 실행 방지 (선택적)
-                // if (loading) return; 
-                // setLoading(true); // 데이터 로드 시작
+                if (!auth.currentUser) return; 
                  
                 try {
                     const [jobsSnapshot, recordsSnapshot, applicantsSnapshot, settingsSnapshot, goalsSnapshot] = await Promise.all([
@@ -203,15 +172,10 @@
 
                 } catch (error) {
                     console.error("데이터 로드 오류:", error);
-                    // setLoading(false); // 오류 발생 시 로딩 상태 해제
                 } finally {
-                     // 데이터 로드 완료 후 로딩 상태 해제
-                    // setLoading(false); 
-                    
-                    // authLoading 이후의 초기 로딩을 관리하기 위해 loading 상태 사용
                     if (loading) setLoading(false);
                 }
-            }, [loading]); // loading 상태가 변경될 때 (초기 로드 시) 실행
+            }, [loading]);
 
 
             // 1. 인증 로딩 중
@@ -232,7 +196,6 @@
             }
 
             // 3. 인증 후 데이터 로딩 중 (초기 로딩)
-            // loading은 useEffect에서 데이터 로드 후 false로 변경됨
             if (loading) {
                  return (
                      <div className="min-h-screen flex items-center justify-center">
@@ -267,9 +230,7 @@
                             </button>
                         </div>
 
-                        {/* 페이지 라우팅: currentPage 상태에 따라 
-                          미리 로드된 페이지 컴포넌트 중 하나를 렌더링합니다.
-                        */}
+                        {/* 페이지 라우팅 */}
                         {currentPage === 'dashboard' && <Dashboard jobs={jobs} dailyRecords={dailyRecords} applicants={applicants} siteSettings={siteSettings} goals={goals} />}
                         {currentPage === 'jobs' && <JobManagement jobs={jobs} applicants={applicants} loadData={loadData} />}
                         {currentPage === 'applicants' && <ApplicantManagement applicants={applicants} jobs={jobs} loadData={loadData} />}
@@ -277,21 +238,14 @@
                         {currentPage === 'compare' && <SiteComparison jobs={jobs} applicants={applicants} dailyRecords={dailyRecords} />}
                         {currentPage === 'efficiency' && <EfficiencyAnalysis jobs={jobs} applicants={applicants} siteSettings={siteSettings} />}
                         {currentPage === 'trends' && <TrendAnalysis jobs={jobs} dailyRecords={dailyRecords} applicants={applicants} />}
-                        
-                        {/* --- ⬇️ 추가된 라우팅 ⬇️ --- */}
                         {currentPage === 'report' && <Report jobs={jobs} dailyRecords={dailyRecords} applicants={applicants} siteSettings={siteSettings} />}
-                        {/* --- ⬆️ 추가된 라우팅 ⬆️ --- */}
-
                         {currentPage === 'settings' && <Settings siteSettings={siteSettings} goals={goals} loadData={loadData} />}
                     </div>
                 </div>
             );
         };
 
-        // --- 모든 페이지 컴포넌트가 외부 파일로 이동했습니다 ---
-        
         // App 컴포넌트와 GlobalStyles를 DOM에 렌더링합니다.
-        // GlobalStyles는 components/UI.js 안에 포함되어 있습니다.
         ReactDOM.render(<> <GlobalStyles /> <App /> </>, document.getElementById('root'));
     </script>
 </body>
