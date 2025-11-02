@@ -7,8 +7,13 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
     const [filters, setFilters] = useState({
         dateRangeType: 'all',
         customRange: { start: '', end: '' },
-        siteFilter: 'all',
-        jobFilter: 'all'
+        // --- ⬇️ (수정) 'siteFilter'를 객체로 변경 (다중 선택) ⬇️ ---
+        siteFilter: {
+            '사람인': true,
+            '잡코리아': true,
+            '인크루트': true,
+        },
+        jobFilter: 'all' // 공고 필터는 단일 선택 유지
     });
 
     // 2. 리포트 섹션 선택 상태
@@ -19,6 +24,18 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
         demographics: true,
         rawData: true,
     });
+    
+    // --- ⬇️ (추가) 상세 목록 컬럼 선택 상태 ⬇️ ---
+    const [columns, setColumns] = useState({
+        name: true,
+        jobTitle: true,
+        appliedDate: true,
+        status: true,
+        gender: true,
+        age: true,
+        contactInfo: false, // '연락처' 기본 숨김
+    });
+    const handleColumnToggle = (key) => setColumns(prev => ({ ...prev, [key]: !prev[key] }));
 
     // 3. 생성된 리포트 데이터 상태
     const [reportData, setReportData] = useState(null);
@@ -28,12 +45,29 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
         setFilters(prev => ({ ...prev, [key]: value }));
     };
     
+    // --- ⬇️ (추가) 사이트 필터 변경 핸들러 (다중 선택) ⬇️ ---
+    const handleSiteFilterChange = (siteKey) => {
+        setFilters(prev => {
+            const newSiteFilter = { ...prev.siteFilter, [siteKey]: !prev.siteFilter[siteKey] };
+            return { ...prev, siteFilter: newSiteFilter, jobFilter: 'all' }; // 사이트 변경 시 공고 필터 초기화
+        });
+    };
+    const handleSelectAllSites = (e) => {
+        const isChecked = e.target.checked;
+        setFilters(prev => ({
+            ...prev,
+            siteFilter: { '사람인': isChecked, '잡코리아': isChecked, '인크루트': isChecked },
+            jobFilter: 'all'
+        }));
+    };
+    const selectedSites = useMemo(() => Object.keys(filters.siteFilter).filter(key => filters.siteFilter[key]), [filters.siteFilter]);
+    // --- ⬆️ (추가) 사이트 필터 핸들러 ⬆️ ---
+
     // 섹션 선택 핸들러
     const handleSectionToggle = (key) => {
         setSections(prev => ({ ...prev, [key]: !prev[key] }));
     };
 
-    // --- ⬇️ (수정) 'dateRange' 계산을 useMemo 훅으로 밖으로 이동 ⬇️ ---
     const dateRange = useMemo(() => {
         const today = new Date();
         const todayStr = today.toISOString().split('T')[0];
@@ -50,18 +84,18 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
         }
         return { start: null, end: todayStr };
     }, [filters.dateRangeType, filters.customRange]);
-    // --- ⬆️ (수정) 'dateRange' 계산 완료 ⬆️ ---
 
     // 리포트 생성 로직
     const handleGenerateReport = () => {
         // --- 1. 데이터 필터링 ---
-        // 'dateRange' 변수는 이제 상위 스코프의 useMemo 훅에서 가져옴
-
+        
+        // --- ⬇️ (수정) 'siteFilter' 로직 변경 ⬇️ ---
         const filteredJobs = jobs.filter(j => 
-            (filters.siteFilter === 'all' || j.site === filters.siteFilter) &&
+            (selectedSites.includes(j.site)) &&
             (filters.jobFilter === 'all' || j.id === filters.jobFilter)
         );
         const jobIds = filteredJobs.map(j => j.id);
+        const jobIdToSite = useMemo(() => jobs.reduce((acc, job) => { acc[job.id] = job.site; return acc; }, {}), [jobs]);
 
         const applyDateFilter = (items, dateField) => {
             if (dateRange.start && dateRange.end && filters.dateRangeType !== 'all') {
@@ -106,7 +140,8 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
         // (제안 2: 비용 대비 효과)
         if (sections.roi) {
             let totalCost = 0;
-            const filteredSettings = siteSettings.filter(s => filters.siteFilter === 'all' || s.site === filters.siteFilter);
+            // --- ⬇️ (수정) 'siteFilter' 로직 변경 ⬇️ ---
+            const filteredSettings = siteSettings.filter(s => selectedSites.includes(s.site));
             filteredSettings.forEach(s => { totalCost += s.monthlyCost || 0; });
             
             const totalHires = newReportData.funnel ? newReportData.funnel.kpi.hires : filteredApplicants.filter(a => a.status === '입사').length;
@@ -117,25 +152,55 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
 
         // (제안 3: 기간별 트렌드)
         if (sections.trends) {
-            const dateMap = {};
+            
+            // --- ⬇️ (수정) 라인 차트: 사이트별 분리 로직 ⬇️ ---
+            const dateMap = {}; // { '2023-10-01': { '사람인': { views: 10, apps: 1 }, '잡코리아': { ... } } }
+            
             filteredRecords.forEach(r => {
-                dateMap[r.date] = dateMap[r.date] || { date: r.date, views: 0, applications: 0 };
-                dateMap[r.date].views += r.viewsIncrease || 0;
+                const site = jobIdToSite[r.jobId];
+                if (!site || !selectedSites.includes(site)) return;
+                
+                dateMap[r.date] = dateMap[r.date] || {};
+                dateMap[r.date][site] = dateMap[r.date][site] || { views: 0, apps: 0 };
+                dateMap[r.date][site].views += r.viewsIncrease || 0;
             });
             filteredApplicants.forEach(a => {
-                dateMap[a.appliedDate] = dateMap[a.appliedDate] || { date: a.appliedDate, views: 0, applications: 0 };
-                dateMap[a.appliedDate].applications++;
+                const site = jobIdToSite[a.appliedJobId];
+                if (!site || !selectedSites.includes(site)) return;
+
+                dateMap[a.appliedDate] = dateMap[a.appliedDate] || {};
+                dateMap[a.appliedDate][site] = dateMap[a.appliedDate][site] || { views: 0, apps: 0 };
+                dateMap[a.appliedDate][site].apps++;
             });
-            const lineData = Object.values(dateMap).sort((a, b) => a.date.localeCompare(b.date));
-            const lineChartData = {
-                labels: lineData.map(d => d.date),
-                datasets: [
-                    { label: '조회수', data: lineData.map(d => d.views), borderColor: 'rgb(59, 130, 246)', tension: 0.1 },
-                    { label: '지원자', data: lineData.map(d => d.applications), borderColor: 'rgb(16, 185, 129)', tension: 0.1 }
-                ]
+
+            const allDates = Object.keys(dateMap).sort();
+            const lineChartDatasets = [];
+            const colors = {
+                '사람인': { views: 'rgb(59, 130, 246)', apps: 'rgb(34, 197, 94)' },
+                '잡코리아': { views: 'rgb(245, 158, 11)', apps: 'rgb(234, 179, 8)' },
+                '인크루트': { views: 'rgb(139, 92, 246)', apps: 'rgb(217, 70, 239)' },
             };
-            
-            const siteData = ['사람인', '잡코리아', '인크루트'].map(site => {
+
+            selectedSites.forEach(site => {
+                lineChartDatasets.push({
+                    label: `${site} - 조회수`,
+                    data: allDates.map(date => dateMap[date][site]?.views || 0),
+                    borderColor: colors[site]?.views || 'rgb(0,0,0)',
+                    tension: 0.1,
+                    borderDash: [5, 5] // 조회수는 점선
+                });
+                lineChartDatasets.push({
+                    label: `${site} - 지원자`,
+                    data: allDates.map(date => dateMap[date][site]?.apps || 0),
+                    borderColor: colors[site]?.apps || 'rgb(100,100,100)',
+                    tension: 0.1
+                });
+            });
+
+            const lineChartData = { labels: allDates, datasets: lineChartDatasets };
+            // --- ⬆️ (수정) 라인 차트 로직 완료 ⬆️ ---
+
+            const siteData = selectedSites.map(site => {
                 const siteJobIds = jobs.filter(j => j.site === site).map(j => j.id);
                 const siteApps = filteredApplicants.filter(a => siteJobIds.includes(a.appliedJobId));
                 return { site, count: siteApps.length };
@@ -143,27 +208,30 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
 
             const pieChartData = {
                 labels: siteData.map(d => d.site),
-                datasets: [{ data: siteData.map(d => d.count), backgroundColor: ['rgba(59, 130, 246, 0.8)', 'rgba(16, 185, 129, 0.8)', 'rgba(245, 158, 11, 0.8)'] }]
+                datasets: [{ data: siteData.map(d => d.count), backgroundColor: ['rgba(59, 130, 246, 0.8)', 'rgba(16, 185, 129, 0.8)', 'rgba(245, 158, 11, 0.8)'].slice(0, siteData.length) }]
             };
             newReportData.trends = { lineChartData, pieChartData };
         }
 
         // (제안 4: 지원자 통계)
         if (sections.demographics) {
-            const gender = { '남': 0, '여': 0, '미지정': 0 };
-            const ageGroups = { '20대 미만': 0, '20대': 0, '30대': 0, '40대': 0, '50대 이상': 0, '미지정': 0 };
+            const gender = { '남': 0, '여': 0 };
+            const ageGroups = { '20대 미만': 0, '20대': 0, '30대': 0, '40대': 0, '50대 이상': 0 };
+            
             filteredApplicants.forEach(a => {
+                // --- ⬇️ (수정) '미지정' 제외 로직 ⬇️ ---
                 if (a.gender === '남') gender['남']++;
                 else if (a.gender === '여') gender['여']++;
-                else gender['미지정']++;
                 
                 const age = a.age;
-                if (!age) ageGroups['미지정']++;
-                else if (age < 20) ageGroups['20대 미만']++;
-                else if (age < 30) ageGroups['20대']++;
-                else if (age < 40) ageGroups['30대']++;
-                else if (age < 50) ageGroups['40대']++;
-                else ageGroups['50대 이상']++;
+                if (age) { // '미지정' (null or 0) 제외
+                    if (age < 20) ageGroups['20대 미만']++;
+                    else if (age < 30) ageGroups['20대']++;
+                    else if (age < 40) ageGroups['30대']++;
+                    else if (age < 50) ageGroups['40대']++;
+                    else ageGroups['50대 이상']++;
+                }
+                // --- ⬆️ (수정) '미지정' 제외 로직 ⬆️ ---
             });
             newReportData.demographics = { gender, ageGroups };
         }
@@ -181,30 +249,31 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
     
     // 필터링된 공고 목록 (select용)
     const availableJobs = useMemo(() => {
-        if (filters.siteFilter === 'all') return jobs;
-        return jobs.filter(j => j.site === filters.siteFilter);
-    }, [jobs, filters.siteFilter]);
+        // --- ⬇️ (수정) 'siteFilter' 로직 변경 ⬇️ ---
+        return jobs.filter(j => selectedSites.includes(j.site));
+    }, [jobs, selectedSites]);
 
-    // --- ⬇️ (수정) 'reportTitle' 생성 로직 수정 ⬇️ ---
+    // 리포트 제목 생성
     const reportTitle = useMemo(() => {
         let title = "채용 리포트";
         let parts = [];
         
-        // 이제 'dateRange' 변수에 안전하게 접근 가능
         if (filters.dateRangeType === 'all' || !dateRange.start) {
             parts.push("전체 기간");
         } else {
             parts.push(`${dateRange.start} ~ ${dateRange.end}`);
         }
         
-        if (filters.siteFilter !== 'all') parts.push(filters.siteFilter);
+        // --- ⬇️ (수정) 'siteFilter' 로직 변경 ⬇️ ---
+        if (selectedSites.length < 3) parts.push(selectedSites.join(', '));
+        else parts.push("전체 사이트");
+
         if (filters.jobFilter !== 'all') {
             const job = jobs.find(j => j.id === filters.jobFilter);
             parts.push(job ? job.title : "선택된 공고");
         }
         return `${title} (${parts.join(" | ")})`;
-    }, [filters, jobs, dateRange]); // 의존성 배열 수정
-    // --- ⬆️ (수정) 'reportTitle' 생성 로직 완료 ⬆️ ---
+    }, [filters, jobs, dateRange, selectedSites]);
 
     return (
         <div className="p-4 md:p-8">
@@ -220,7 +289,7 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                 {/* 필터 설정 */}
                 <div className="bg-white rounded-xl shadow-lg p-4 mb-6">
                     <h3 className="text-xl font-semibold mb-4">1. 필터 설정</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         {/* 날짜 필터 */}
                         <div>
                             <label className="label-style">기간</label>
@@ -238,21 +307,26 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                                 </div>
                             )}
                         </div>
-                        {/* 사이트 필터 */}
+                        
+                        {/* --- ⬇️ (수정) 사이트 필터 (체크박스) ⬇️ --- */}
                         <div>
                             <label className="label-style">사이트</label>
-                            <Select value={filters.siteFilter} onChange={(e) => { handleFilterChange('siteFilter', e.target.value); handleFilterChange('jobFilter', 'all'); }}>
-                                <option value="all">전체 사이트</option>
-                                <option value="사람인">사람인</option>
-                                <option value="잡코리아">잡코리아</option>
-                                <option value="인크루트">인크루트</option>
-                            </Select>
+                            <div className="space-y-2 mt-2">
+                                <label className="flex items-center space-x-2"><input type="checkbox" checked={selectedSites.length === 3} onChange={handleSelectAllSites} className="h-4 w-4" /> <span><b>전체 선택</b></span></label>
+                                {Object.keys(filters.siteFilter).map(siteKey => (
+                                     <label key={siteKey} className="flex items-center space-x-2 ml-4">
+                                        <input type="checkbox" checked={filters.siteFilter[siteKey]} onChange={() => handleSiteFilterChange(siteKey)} className="h-4 w-4" /> <span>{siteKey}</span>
+                                     </label>
+                                ))}
+                            </div>
                         </div>
+                        {/* --- ⬆️ (수정) 사이트 필터 (체크박스) ⬆️ --- */}
+
                         {/* 공고 필터 */}
                         <div>
-                            <label className="label-style">공고</label>
+                            <label className="label-style">공고 (선택한 사이트 기준)</label>
                             <Select value={filters.jobFilter} onChange={(e) => handleFilterChange('jobFilter', e.target.value)}>
-                                <option value="all">전체 공고</option>
+                                <option value="all">전체 공고 ({availableJobs.length}개)</option>
                                 {availableJobs.map(job => (
                                     <option key={job.id} value={job.id}>{job.title} ({job.site})</option>
                                 ))}
@@ -324,10 +398,38 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                         {/* 섹션 3: 기간별 트렌드 */}
                         {sections.trends && reportData.trends && (
                             <ReportSection title="기간별 트렌드">
-                                <h4 className="text-lg font-semibold mb-3">일별 조회수 및 지원자 추이</h4>
+                                <h4 className="text-lg font-semibold mb-3">일별 조회수 및 지원자 추이 (사이트별)</h4>
                                 <div className="w-full h-64 mb-6"><ChartComponent type="line" data={reportData.trends.lineChartData} options={{ scales: { y: { beginAtZero: true } } }} /></div>
                                 <h4 className="text-lg font-semibold mb-3">사이트별 지원자 비율</h4>
-                                <div className="w-full h-64"><ChartComponent type="pie" data={reportData.trends.pieChartData} /></div>
+                                {/* --- ⬇️ (수정) 파이 차트 옵션 (datalabels) ⬇️ --- */}
+                                <div className="w-full h-64"><ChartComponent type="pie" data={reportData.trends.pieChartData} options={{
+                                    plugins: {
+                                        datalabels: {
+                                            display: true,
+                                            color: 'white',
+                                            font: { weight: 'bold', size: 12 },
+                                            formatter: (value, ctx) => {
+                                                const dataset = ctx.chart.data.datasets[0];
+                                                const total = dataset.data.reduce((acc, data) => acc + data, 0);
+                                                const percentage = (value * 100 / total).toFixed(1) + '%';
+                                                return `${value}명\n(${percentage})`;
+                                            }
+                                        },
+                                        tooltip: {
+                                            callbacks: {
+                                                label: (ctx) => {
+                                                    const label = ctx.label || '';
+                                                    const value = ctx.raw || 0;
+                                                    const dataset = ctx.dataset.data;
+                                                    const total = dataset.reduce((acc, data) => acc + data, 0);
+                                                    const percentage = (value * 100 / total).toFixed(1) + '%';
+                                                    return `${label}: ${value}명 (${percentage})`;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }} /></div>
+                                {/* --- ⬆️ (수정) 파이 차트 옵션 (datalabels) ⬆️ --- */}
                             </ReportSection>
                         )}
                         
@@ -338,7 +440,8 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                                     <div>
                                         <h4 className="text-lg font-semibold mb-3">성별 분포</h4>
                                         <div className="space-y-2">
-                                            {Object.entries(reportData.demographics.gender).map(([key, value]) => (
+                                            {/* --- ⬇️ (수정) '미지정' 필터링 로직 ⬇️ --- */}
+                                            {Object.entries(reportData.demographics.gender).filter(([key, value]) => value > 0).map(([key, value]) => (
                                                 <div key={key} className="flex justify-between p-3 bg-gray-50 rounded"><span>{key}</span><span className="font-bold">{value}명</span></div>
                                             ))}
                                         </div>
@@ -346,7 +449,8 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                                     <div>
                                         <h4 className="text-lg font-semibold mb-3">연령대 분포</h4>
                                         <div className="space-y-2">
-                                            {Object.entries(reportData.demographics.ageGroups).map(([key, value]) => (
+                                            {/* --- ⬇️ (수정) '미지정' 필터링 로직 ⬇️ --- */}
+                                            {Object.entries(reportData.demographics.ageGroups).filter(([key, value]) => value > 0).map(([key, value]) => (
                                                 <div key={key} className="flex justify-between p-3 bg-gray-50 rounded"><span>{key}</span><span className="font-bold">{value}명</span></div>
                                             ))}
                                         </div>
@@ -358,15 +462,47 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                         {/* 섹션 5: 상세 데이터 */}
                         {sections.rawData && reportData.rawData && (
                             <ReportSection title="상세 지원자 목록">
+                                {/* --- ⬇️ (추가) 컬럼 선택 UI ⬇️ --- */}
+                                <div className="no-print mb-4 p-4 border rounded-lg">
+                                    <h5 className="font-semibold mb-2">테이블 컬럼 표시/숨기기</h5>
+                                    <div className="flex flex-wrap gap-4">
+                                        {Object.keys(columns).map(colKey => (
+                                            <label key={colKey} className="flex items-center space-x-2">
+                                                <input type="checkbox" checked={columns[colKey]} onChange={() => handleColumnToggle(colKey)} className="h-4 w-4" />
+                                                <span>{ {name: '이름', jobTitle: '지원 공고', appliedDate: '지원일', status: '상태', gender: '성별', age: '나이', contactInfo: '연락처'}[colKey] }</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                                {/* --- ⬆️ (추가) 컬럼 선택 UI ⬆️ --- */}
+                                
                                 <div className="overflow-x-auto" style={{maxHeight: '400px'}}>
                                     <table className="w-full text-sm">
-                                        <thead className="bg-gray-50 sticky top-0"><tr><th className="th-style">이름</th><th className="th-style">지원 공고</th><th className="th-style">지원일</th><th className="th-style">상태</th><th className="th-style">성별</th><th className="th-style">나이</th><th className="th-style">연락처</th></tr></thead>
+                                        <thead className="bg-gray-50 sticky top-0">
+                                            <tr>
+                                                {/* --- ⬇️ (수정) 조건부 렌더링 ⬇️ --- */}
+                                                {columns.name && <th className="th-style">이름</th>}
+                                                {columns.jobTitle && <th className="th-style">지원 공고</th>}
+                                                {columns.appliedDate && <th className="th-style">지원일</th>}
+                                                {columns.status && <th className="th-style">상태</th>}
+                                                {columns.gender && <th className="th-style">성별</th>}
+                                                {columns.age && <th className="th-style">나이</th>}
+                                                {columns.contactInfo && <th className="th-style">연락처</th>}
+                                                {/* --- ⬆️ (수정) 조건부 렌더링 ⬆️ --- */}
+                                            </tr>
+                                        </thead>
                                         <tbody className="divide-y divide-gray-200">
                                             {reportData.rawData.applicants.map(a => (
                                                 <tr key={a.id}>
-                                                    <td className="td-style">{a.name}</td><td className="td-style">{a.jobTitle}</td><td className="td-style">{a.appliedDate}</td>
-                                                    <td className="td-style"><ApplicantStatusBadge status={a.status} /></td>
-                                                    <td className="td-style">{a.gender}</td><td className="td-style">{a.age}</td><td className="td-style">{a.contactInfo}</td>
+                                                    {/* --- ⬇️ (수정) 조건부 렌더링 ⬇️ --- */}
+                                                    {columns.name && <td className="td-style">{a.name}</td>}
+                                                    {columns.jobTitle && <td className="td-style">{a.jobTitle}</td>}
+                                                    {columns.appliedDate && <td className="td-style">{a.appliedDate}</td>}
+                                                    {columns.status && <td className="td-style"><ApplicantStatusBadge status={a.status} /></td>}
+                                                    {columns.gender && <td className="td-style">{a.gender}</td>}
+                                                    {columns.age && <td className="td-style">{a.age}</td>}
+                                                    {columns.contactInfo && <td className="td-style">{a.contactInfo}</td>}
+                                                    {/* --- ⬆️ (수정) 조건부 렌더링 ⬆️ --- */}
                                                 </tr>
                                             ))}
                                         </tbody>
