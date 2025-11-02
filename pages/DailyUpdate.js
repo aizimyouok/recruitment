@@ -75,7 +75,9 @@ const DailyUpdate = ({ jobs, dailyRecords, loadData }) => {
                 </div>
                 {activeJobs.length > 0 && <Button onClick={handleSubmit} disabled={isSaving} variant="primary" className="mt-4 md:mt-0 w-full md:w-auto">{isSaving ? '저장 중...' : '조회수 저장'}</Button>}
             </div>
-            <div className="space-y-4 mb-8">
+            
+            {/* --- ⬇️ (수정) 'grid' 레이아웃으로 변경 ⬇️ --- */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                 {activeJobs.map(job => {
                     const prevTotal = previousViews[job.id] || 0;
                     const dailyIncrease = viewInputs[job.id] ?? ''; 
@@ -85,9 +87,7 @@ const DailyUpdate = ({ jobs, dailyRecords, loadData }) => {
                         <div key={job.id} className="bg-white rounded-xl shadow-lg p-6">
                             <div className="mb-4">
                                 <h3 className="text-lg font-semibold text-gray-800">{job.title}</h3>
-                                {/* --- ⬇️ (수정) '모집유형' 라벨 추가 ⬇️ --- */}
                                 <p className="text-sm text-gray-600">{job.site} | 모집유형: {job.position}</p>
-                                {/* --- ⬆️ (수정) ⬆️ --- */}
                             </div>
                             <div>
                                 <label className="label-style mb-1">일일 조회수 (증가분)</label>
@@ -96,7 +96,9 @@ const DailyUpdate = ({ jobs, dailyRecords, loadData }) => {
                                     min="0" 
                                     value={dailyIncrease} 
                                     onChange={(e) => handleChange(job.id, e.target.value)} 
-                                    className="w-full md:w-1/2 lg:w-1-3" 
+                                    // --- ⬇️ (수정) 입력창 너비 고정 ⬇️ ---
+                                    className="w-full md:w-48" 
+                                    // --- ⬆️ (수정) ⬆️ ---
                                     placeholder="0" 
                                 />
                                 <p className="text-xs text-gray-500 mt-1">
@@ -107,6 +109,8 @@ const DailyUpdate = ({ jobs, dailyRecords, loadData }) => {
                     );
                 })}
             </div>
+            {/* --- ⬆️ (수정) ⬆️ --- */}
+            
             {activeJobs.length === 0 && <div className="text-center py-12 text-gray-500">진행중인 공고가 없습니다.</div>}
         </div>
     );
