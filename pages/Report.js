@@ -12,31 +12,41 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
         jobFilter: 'all'
     });
 
+    // --- ⬇️ (수정) 모든 항목의 기본값을 'true'로 변경 ⬇️ ---
     // 2. 리포트 섹션 선택 상태
     const [sections, setSections] = useState({
-        funnel: true,
+        // 채용 퍼널
+        funnel_summary: true, // 퍼널 요약 (그래픽)
+        funnel_rates: true,   // 단계별 전환율 (박스)
+        // 비용 대비 효과
         roi: true,
-        trends: true,
-        positionAnalysis: true,
-        demographics: true,
-        rawData: true,
+        // 사이트 트렌드
+        trends_lineChart: true, // 일별 추이 (라인)
+        trends_pieChart: true,  // 지원자 비율 (파이)
+        // 모집유형 분석
+        position_pieChart: true, // 유형별 비율 (파이)
+        position_summary: true, // 유형별 현황 (박스)
+        // 지원자 통계
+        demographics_gender: true, // 성별 분포
+        demographics_age: true,    // 연령대 분포
+        // 상세 데이터
+        rawData: true
     });
+    // --- ⬆️ (수정) ⬆️ ---
     
-    // --- ⬇️ (수정) 'columns' 상태: 순서 변경 및 jobSite 추가, jobTitle 제거 ⬇️ ---
     // 3. 상세 목록 컬럼 선택 상태
     const [columns, setColumns] = useState({
         name: true,
         gender: true,
         age: true,
-        jobSite: true, // '지원사이트'를 기본값으로 추가
+        jobSite: true, 
         position: true,
         appliedDate: true,
         status: true,
         contactInfo: false,
-        jobTitle: false, // '지원 공고'는 기본값에서 제외
+        jobTitle: false, 
     });
     const handleColumnToggle = (key) => setColumns(prev => ({ ...prev, [key]: !prev[key] }));
-    // --- ⬆️ (수정) ⬆️ ---
 
     // 4. 생성된 리포트 데이터 상태
     const [reportData, setReportData] = useState(null);
@@ -277,7 +287,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                         ...a, 
                         jobTitle: job?.title || 'N/A', 
                         position: job?.position || 'N/A',
-                        // --- ⬇️ (추가) 'jobSite' 데이터 추가 ⬇️ ---
                         jobSite: job?.site || 'N/A' 
                     };
                 })
@@ -565,7 +574,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                             <ReportSection title="상세 지원자 목록">
                                 <div className="no-print mb-4 p-4 border rounded-lg">
                                     <h5 className="font-semibold mb-2">테이블 컬럼 표시/숨기기</h5>
-                                    {/* --- ⬇️ (수정) 컬럼 순서 및 라벨 변경 ⬇️ --- */}
                                     <div className="flex flex-wrap gap-4">
                                         {[
                                             {key: 'name', label: '이름'},
@@ -584,13 +592,11 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                                             </label>
                                         ))}
                                     </div>
-                                    {/* --- ⬆️ (수정) ⬆️ --- */}
                                 </div>
                                 
                                 <div className="overflow-x-auto" style={{maxHeight: '400px'}}>
                                     <table className="w-full text-sm">
                                         <thead className="bg-gray-50 sticky top-0">
-                                            {/* --- ⬇️ (수정) 컬럼 순서 변경 ⬇️ --- */}
                                             <tr>
                                                 {columns.name && <th className="th-style">이름</th>}
                                                 {columns.gender && <th className="th-style">성별</th>}
@@ -602,12 +608,10 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                                                 {columns.contactInfo && <th className="th-style">연락처</th>}
                                                 {columns.jobTitle && <th className="th-style">지원 공고</th>}
                                             </tr>
-                                            {/* --- ⬆️ (수정) ⬆️ --- */}
                                         </thead>
                                         <tbody className="divide-y divide-gray-200">
                                             {reportData.rawData.applicants.map(a => (
                                                 <tr key={a.id}>
-                                                    {/* --- ⬇️ (수정) 컬럼 순서 변경 및 jobSite 추가 ⬇️ --- */}
                                                     {columns.name && <td className="td-style">{a.name}</td>}
                                                     {columns.gender && <td className="td-style">{a.gender}</td>}
                                                     {columns.age && <td className="td-style">{a.age}</td>}
@@ -617,7 +621,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                                                     {columns.status && <td className="td-style"><ApplicantStatusBadge status={a.status} /></td>}
                                                     {columns.contactInfo && <td className="td-style">{a.contactInfo}</td>}
                                                     {columns.jobTitle && <td className="td-style">{a.jobTitle}</td>}
-                                                    {/* --- ⬆️ (수정) ⬆️ --- */}
                                                 </tr>
                                             ))}
                                         </tbody>
