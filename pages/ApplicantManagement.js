@@ -6,7 +6,15 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
     const [showForm, setShowForm] = useState(false);
     const [editingApplicant, setEditingApplicant] = useState(null);
     const [formData, setFormData] = useState({ name: '', gender: '남', age: '', contactInfo: '', appliedJobId: '', appliedDate: new Date().toISOString().split('T')[0], status: '지원', memo: '' });
-    const [filters, setFilters] = useState({ jobId: 'all', status: 'all' });
+    
+    // --- ⬇️ (수정) 필터 상태: 'jobId'를 'sites'와 'positions' (다중 선택)으로 변경 ⬇️ ---
+    const [filters, setFilters] = useState({
+        sites: { '사람인': true, '잡코리아': true, '인크루트': true },
+        positions: { '영업': true, '강사': true },
+        status: 'all'
+    });
+    // --- ⬆️ (수정) ⬆️ ---
+
     const [searchTerm, setSearchTerm] = useState('');
 
     const activeJobs = useMemo(() => jobs.filter(j => j.status === '진행중'), [jobs]);
@@ -17,6 +25,48 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
             setFormData(prev => ({ ...prev, appliedJobId: activeJobs[0].id }));
         }
     }, [activeJobs, editingApplicant, formData.appliedJobId]);
+
+    // --- ⬇️ (추가) 다중 선택 필터 핸들러 ⬇️ ---
+    const handleSiteFilterChange = (siteKey) => {
+        setFilters(prev => ({
+            ...prev,
+            sites: { ...prev.sites, [siteKey]: !prev.sites[siteKey] }
+        }));
+    };
+    const handleSelectAllSites = (e) => {
+        const isChecked = e.target.checked;
+        setFilters(prev => ({
+            ...prev,
+            sites: { '사람인': isChecked, '잡코리아': isChecked, '인크루트': isChecked }
+        }));
+    };
+    
+    const handlePositionFilterChange = (posKey) => {
+        setFilters(prev => ({
+            ...prev,
+            positions: { ...prev.positions, [posKey]: !prev.positions[posKey] }
+        }));
+    };
+    const handleSelectAllPositions = (e) => {
+        const isChecked = e.target.checked;
+        setFilters(prev => ({
+            ...prev,
+            positions: { '영업': isChecked, '강사': isChecked }
+        }));
+    };
+    
+    // 선택된 필터 항목 배열 (필터링 로직용)
+    const selectedSites = useMemo(() => Object.keys(filters.sites).filter(key => filters.sites[key]), [filters.sites]);
+    const selectedPositions = useMemo(() => Object.keys(filters.positions).filter(key => filters.positions[key]), [filters.positions]);
+    
+    // 공고 ID로 공고 정보(사이트, 유형)를 찾기 위한 맵
+    const jobIdToJob = useMemo(() => {
+        return jobs.reduce((acc, job) => {
+            acc[job.id] = job;
+            return acc;
+        }, {});
+    }, [jobs]);
+    // --- ⬆️ (추가) ⬆️ ---
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -76,17 +126,29 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
         }
     };
 
+    // --- ⬇️ (수정) 필터링 로직 (filteredApplicants) ⬇️ ---
     const filteredApplicants = useMemo(() => {
         return applicants.filter(a => {
-            const jobMatch = filters.jobId === 'all' || a.appliedJobId === filters.jobId;
+            const job = jobIdToJob[a.appliedJobId];
+            // 지원한 공고 정보가 없는 경우 (예: 공고 삭제됨)
+            if (!job) return false; 
+            
+            // 1. 사이트 필터
+            const siteMatch = selectedSites.includes(job.site);
+            // 2. 모집유형 필터
+            const positionMatch = selectedPositions.includes(job.position);
+            // 3. 상태 필터
             const statusMatch = filters.status === 'all' || a.status === filters.status;
+            // 4. 이름 검색 필터
             const nameMatch = searchTerm === '' || (a.name && a.name.toLowerCase().includes(searchTerm.toLowerCase()));
-            return jobMatch && statusMatch && nameMatch;
+            
+            return siteMatch && positionMatch && statusMatch && nameMatch;
         });
-    }, [applicants, filters, searchTerm]);
+    }, [applicants, filters, searchTerm, jobIdToJob, selectedSites, selectedPositions]); // 의존성 업데이트
+    // --- ⬆️ (수정) ⬆️ ---
 
-    const getJobTitle = useCallback((jobId) => jobs.find(j => j.id === jobId)?.title || 'N/A', [jobs]);
-    const getJobPosition = useCallback((jobId) => jobs.find(j => j.id === jobId)?.position || 'N/A', [jobs]);
+    const getJobTitle = useCallback((jobId) => jobIdToJob[jobId]?.title || 'N/A', [jobIdToJob]);
+    const getJobPosition = useCallback((jobId) => jobIdToJob[jobId]?.position || 'N/A', [jobIdToJob]);
 
     return (
         <div className="p-4 md:p-8">
@@ -128,23 +190,39 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
                 </div>
             )}
 
-            {/* --- ⬇️ (수정) 필터 바 레이아웃 수정 ⬇️ --- */}
+            {/* --- ⬇️ (수정) 필터 바 레이아웃 및 항목 전체 변경 ⬇️ --- */}
             <div className="bg-white rounded-xl shadow-lg p-4 mb-6">
-                {/* 'flex-col md:flex-row' -> 'flex flex-wrap'로 변경, 'gap-4' 유지 */}
-                <div className="flex flex-wrap items-center gap-4">
+                <div className="flex flex-wrap items-start gap-x-6 gap-y-4">
                     {/* 1. 이름 검색 */}
-                    <div className="min-w-0 w-full md:w-64">
+                    <div className="min-w-0 w-full sm:w-auto md:w-64">
+                        <label className="label-style">이름 검색</label>
                         <Input type="text" placeholder="이름 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                     </div>
                     
-                    {/* 2. 필터 그룹 (ml-auto 제거, gap-2 사용) */}
-                    <div className="flex flex-wrap gap-2">
-                        <Select value={filters.jobId} onChange={(e) => setFilters(prev => ({ ...prev, jobId: e.target.value }))} className="filter-select">
-                            <option value="all">모든 공고</option>
-                            {activeJobs.map(job => 
-                                <option key={job.id} value={job.id}>{job.title} ({job.position})</option>
-                            )}
-                        </Select>
+                    {/* 2. 모집유형 필터 */}
+                    <div>
+                        <label className="label-style">모집유형</label>
+                        <div className="flex flex-wrap gap-x-4 gap-y-2 mt-2">
+                            <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={selectedPositions.length === 2} onChange={handleSelectAllPositions} /> <span><b>전체</b></span></label>
+                            <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={filters.positions['영업']} onChange={() => handlePositionFilterChange('영업')} /> <span>영업</span></label>
+                            <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={filters.positions['강사']} onChange={() => handlePositionFilterChange('강사')} /> <span>강사</span></label>
+                        </div>
+                    </div>
+
+                    {/* 3. 사이트 필터 */}
+                    <div>
+                        <label className="label-style">지원사이트</label>
+                        <div className="flex flex-wrap gap-x-4 gap-y-2 mt-2">
+                            <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={selectedSites.length === 3} onChange={handleSelectAllSites} /> <span><b>전체</b></span></label>
+                            <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={filters.sites['사람인']} onChange={() => handleSiteFilterChange('사람인')} /> <span>사람인</span></label>
+                            <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={filters.sites['잡코리아']} onChange={() => handleSiteFilterChange('잡코리아')} /> <span>잡코리아</span></label>
+                            <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={filters.sites['인크루트']} onChange={() => handleSiteFilterChange('인크루트')} /> <span>인크루트</span></label>
+                        </div>
+                    </div>
+
+                    {/* 4. 상태 필터 */}
+                    <div>
+                        <label className="label-style">상태</label>
                         <Select value={filters.status} onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))} className="filter-select">
                             <option value="all">모든 상태</option>
                             {applicantStatuses.map(status => <option key={status} value={status}>{status}</option>)}
