@@ -8,7 +8,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
         dateRangeType: 'all',
         customRange: { start: '', end: '' },
         siteFilter: { '사람인': true, '잡코리아': true, '인크루트': true },
-        // --- ⬇️ (수정) '기타' 제거 ⬇️ ---
         positionFilter: { '영업': true, '강사': true },
         jobFilter: 'all'
     });
@@ -66,11 +65,16 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
     };
     const handleSelectAllPositions = (e) => {
         const isChecked = e.target.checked;
-        // --- ⬇️ (수정) '기타' 제거 ⬇️ ---
         setFilters(prev => ({ ...prev, positionFilter: { '영업': isChecked, '강사': isChecked }, jobFilter: 'all' }));
     };
     const selectedPositions = useMemo(() => Object.keys(filters.positionFilter).filter(key => filters.positionFilter[key]), [filters.positionFilter]);
-    // --- ⬆️ (수정) ⬆️ ---
+
+    // --- ⬇️ (오류 수정) 삭제되었던 'handleSectionToggle' 함수를 다시 추가 ⬇️ ---
+    // 섹션 선택 핸들러
+    const handleSectionToggle = (key) => {
+        setSections(prev => ({ ...prev, [key]: !prev[key] }));
+    };
+    // --- ⬆️ (오류 수정) ⬆️ ---
 
     const jobIdToJob = useMemo(() => {
         return jobs.reduce((acc, job) => {
@@ -232,7 +236,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                 labels: Object.keys(posStats),
                 datasets: [{ 
                     data: Object.values(posStats).map(d => d.applications),
-                    // --- ⬇️ (수정) '기타' 색상(회색) 제거 ⬇️ ---
                     backgroundColor: ['rgba(34, 197, 94, 0.8)', 'rgba(234, 179, 8, 0.8)'].slice(0, Object.keys(posStats).length) 
                 }]
             };
@@ -287,10 +290,8 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
         if (selectedSites.length < 3) parts.push(selectedSites.join(', '));
         else parts.push("전체 사이트");
         
-        // --- ⬇️ (수정) '기타' 제거 ⬇️ ---
         if (selectedPositions.length < 2) parts.push(selectedPositions.join(', '));
         else parts.push("전체 유형");
-        // --- ⬆️ (수정) ⬆️ ---
 
         if (filters.jobFilter !== 'all') {
             const job = jobs.find(j => j.id === filters.jobFilter);
@@ -349,14 +350,12 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                         <div>
                             <label className="label-style">모집유형</label>
                             <div className="space-y-2 mt-2">
-                                {/* --- ⬇️ (수정) '기타' 제거 ⬇️ --- */}
                                 <label className="flex items-center space-x-2"><input type="checkbox" checked={selectedPositions.length === 2} onChange={handleSelectAllPositions} className="h-4 w-4" /> <span><b>전체 선택</b></span></label>
                                 {Object.keys(filters.positionFilter).map(posKey => (
                                      <label key={posKey} className="flex items-center space-x-2 ml-4">
                                         <input type="checkbox" checked={filters.positionFilter[posKey]} onChange={() => handlePositionFilterChange(posKey)} className="h-4 w-4" /> <span>{posKey}</span>
                                      </label>
                                 ))}
-                                {/* --- ⬆️ (수정) ⬆️ --- */}
                             </div>
                         </div>
 
@@ -451,7 +450,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                                 <div className="w-full h-64 mb-6"><ChartComponent type="pie" data={reportData.positionAnalysis.pieChartData} options={{ plugins: { datalabels: { display: true, color: 'white', font: { weight: 'bold', size: 12 }, formatter: (value, ctx) => { const dataset = ctx.chart.data.datasets[0]; const total = dataset.data.reduce((acc, data) => acc + data, 0); const percentage = (value * 100 / total).toFixed(1) + '%'; return `${value}명\n(${percentage})`; } }, tooltip: { callbacks: { label: (ctx) => { const label = ctx.label || ''; const value = ctx.raw || 0; const dataset = ctx.dataset.data; const total = dataset.reduce((acc, data) => acc + data, 0); const percentage = (value * 100 / total).toFixed(1) + '%'; return `${label}: ${value}명 (${percentage})`; } } } } }} /></div>
                                 
                                 <h4 className="text-lg font-semibold mb-3">모집유형별 현황</h4>
-                                {/* --- ⬇️ (수정) grid-cols-2로 변경 ⬇️ --- */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {Object.entries(reportData.positionAnalysis.summaryData).map(([pos, data]) => (
                                         <div key={pos} className="border border-gray-200 rounded-lg p-4">
