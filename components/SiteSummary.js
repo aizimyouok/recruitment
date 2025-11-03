@@ -3,7 +3,6 @@
 // 이 컴포넌트는 Dashboard.js에서 사용됩니다.
 
 const SiteSummary = ({ jobs, dailyRecords, applicants, filter }) => {
-    // --- ⬇️ (수정) 집계 기준 변경: 'site' -> '(site, position)' 조합 ⬇️ ---
     
     // 1. 분석할 조합 정의
     const sites = filter ? [filter] : ['사람인', '잡코리아', '인크루트'];
@@ -40,7 +39,10 @@ const SiteSummary = ({ jobs, dailyRecords, applicants, filter }) => {
             };
             
             siteApplicants.forEach(a => {
-                totals.applications++;
+                // '지원'은 '중복', '불합격'을 포함한 모든 최초 지원을 의미
+                totals.applications++; 
+                
+                // '컨택'부터는 '중복', '불합격'을 제외한 실제 진행 건
                 if (['컨택', '면접', '합격', '입사'].includes(a.status)) totals.contacts++;
                 if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++;
                 if (['합격', '입사'].includes(a.status)) totals.offers++;
@@ -49,26 +51,24 @@ const SiteSummary = ({ jobs, dailyRecords, applicants, filter }) => {
 
             return { key: `${site}-${position}`, site, position, ...totals };
         }).filter(data => data.jobs > 0); // 공고가 1개라도 있는 항목만 표시
-    }, [jobs, dailyRecords, applicants, filter]); // filter 대신 combinations (내부 생성)
-    // --- ⬆️ (수정) 집계 로직 완료 ⬆️ ---
+    }, [jobs, dailyRecords, applicants, filter]);
 
     return (
-        // --- ⬇️ (수정) 3열 -> 2열 그리드로 변경 (더 많은 정보 표시) ⬇️ ---
         <div className={`grid grid-cols-1 md:grid-cols-2 gap-4`}>
             {summaryData.map(data => (
                 <div key={data.key} className="border border-gray-200 rounded-lg p-4">
-                    {/* --- ⬇️ (수정) 타이틀 변경 ⬇️ --- */}
                     <h4 className="font-semibold text-lg mb-3">
                         {data.site} - <span className="text-blue-600">{data.position}</span>
                     </h4>
-                    {/* --- ⬆️ (수정) ⬆️ --- */}
                     <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                        <div className="stat-item"><span className="stat-label">공고 수:</span><span className="font-semibold">{data.jobs}</span></div>
+                        {/* --- ⬇️ (수정) '공고 수' 항목 제거 ⬇️ --- */}
+                        {/* <div className="stat-item"><span className="stat-label">공고 수:</span><span className="font-semibold">{data.jobs}</span></div> */}
                         <div className="stat-item"><span className="stat-label">조회수:</span><span className="font-semibold">{data.views}</span></div>
                         <div className="stat-item"><span className="stat-label">지원자:</span><span className="font-semibold">{data.applications}</span></div>
                         <div className="stat-item"><span className="stat-label">컨택:</span><span className="font-semibold">{data.contacts}</span></div>
                         <div className="stat-item"><span className="stat-label">면접:</span><span className="font-semibold">{data.interviews}</span></div>
                         <div className="stat-item"><span className="stat-label">합격:</span><span className="font-semibold">{data.offers}</span></div>
+                        {/* --- ⬆️ (수정) ⬆️ --- */}
                         <div className="flex justify-between col-span-2 border-t pt-2 mt-1"><span className="text-gray-600 font-bold">입사:</span><span className="font-bold text-lg text-blue-600">{data.hires}명</span></div>
                     </div>
                 </div>
