@@ -61,16 +61,18 @@ const SiteComparison = ({ jobs, applicants, dailyRecords }) => {
         }).filter(data => data.jobs > 0); 
     }, [jobs, applicants, dailyRecords]);
     
-    // --- ⬇️ (수정) 차트 데이터셋에 '불합격' 추가 (가독성을 위해 중복/거절은 제외) ⬇️ ---
+    // --- ⬇️ (수정) 차트 데이터셋에 '중복', '거절/취소', '불합격' 추가 ⬇️ ---
     const chartData = {
         labels: siteData.map(d => `${d.site} (${d.position})`),
         datasets: [ 
             { label: '지원자', data: siteData.map(d => d.applications), backgroundColor: 'rgba(59, 130, 246, 0.8)' }, 
+            { label: '중복', data: siteData.map(d => d.duplicates), backgroundColor: 'rgba(107, 114, 128, 0.8)' },
+            { label: '거절/취소', data: siteData.map(d => d.rejectCancel), backgroundColor: 'rgba(239, 68, 68, 0.5)' },
             { label: '컨택', data: siteData.map(d => d.contacts), backgroundColor: 'rgba(234, 179, 8, 0.8)' },
             { label: '면접', data: siteData.map(d => d.interviews), backgroundColor: 'rgba(139, 92, 246, 0.8)' }, 
             { label: '합격', data: siteData.map(d => d.offers), backgroundColor: 'rgba(16, 185, 129, 0.8)' },
             { label: '불합격', data: siteData.map(d => d.fails), backgroundColor: 'rgba(239, 68, 68, 0.8)' },
-            { label: '입사자', data: siteData.map(d => d.hires), backgroundColor: 'rgba(22, 163, 74, 0.8)' } 
+            { label: '입사자', data: siteData.map(d => d.hires), backgroundColor: 'rgba(22, 163, 74, 1)' } 
         ]
     };
     // --- ⬆️ (수정) ⬆️ ---
