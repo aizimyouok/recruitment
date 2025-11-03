@@ -192,12 +192,13 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
             const jobIds = posJobs.map(j => j.id);
             const posApplicants = dateFilteredApplicants.filter(a => jobIds.includes(a.appliedJobId));
             
-            // --- ⬇️ (수정) 'duplicates', 'rejectCancel', 'fails' 항목 추가 ⬇️ ---
-            const totals = { applications: 0, duplicates: 0, rejectCancel: 0, contacts: 0, interviews: 0, offers: 0, fails: 0, hires: 0 };
+            // --- ⬇️ (수정) 'rejectCancel'을 'reject', 'cancel'로 분리 ⬇️ ---
+            const totals = { applications: 0, duplicates: 0, reject: 0, cancel: 0, contacts: 0, interviews: 0, offers: 0, fails: 0, hires: 0 };
             posApplicants.forEach(a => {
                 totals.applications++;
                 if (a.status === '중복') totals.duplicates++;
-                if (a.status === '거절' || a.status === '취소') totals.rejectCancel++;
+                if (a.status === '거절') totals.reject++;
+                if (a.status === '취소') totals.cancel++;
                 if (a.status === '불합격') totals.fails++;
 
                 if (['컨택', '면접', '합격', '입사'].includes(a.status)) totals.contacts++;
@@ -364,11 +365,16 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                     {positionSummaryData.map(data => (
                         <div key={data.position} className="border border-gray-200 rounded-lg p-4">
                             <h4 className="font-semibold text-lg mb-3">{data.position}</h4>
-                            {/* --- ⬇️ (수정) '중복', '거절/취소', '합격/불합격' 포맷 적용 (8개 항목) ⬇️ --- */}
+                            {/* --- ⬇️ (수정) '거절/취소' 항목 분리 ⬇️ --- */}
                             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                                 <div className="stat-item"><span className="stat-label">지원자:</span><span className="font-semibold">{data.applications}</span></div>
                                 <div className="stat-item"><span className="stat-label">중복:</span><span className="font-semibold text-red-600">{data.duplicates}</span></div>
-                                <div className="stat-item"><span className="stat-label">거절/취소:</span><span className="font-semibold text-red-600">{data.rejectCancel}</span></div>
+                                <div className="stat-item">
+                                    <span className="stat-label">거절/취소:</span>
+                                    <span className="font-semibold">
+                                        <span className="text-red-600">{data.reject}</span> / <span className="text-red-600">{data.cancel}</span>
+                                    </span>
+                                </div>
                                 <div className="stat-item"><span className="stat-label">컨택:</span><span className="font-semibold">{data.contacts}</span></div>
                                 <div className="stat-item"><span className="stat-label">면접:</span><span className="font-semibold">{data.interviews}</span></div>
                                 <div className="stat-item">
