@@ -26,12 +26,13 @@ const SiteSummary = ({ jobs, dailyRecords, applicants, filter }) => {
             const totalViews = siteRecords.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
             const siteApplicants = applicants.filter(a => jobIds.includes(a.appliedJobId));
             
-            // --- ⬇️ (수정) 'duplicates' 항목 추가 ⬇️ ---
+            // --- ⬇️ (수정) 'rejectCancel' 항목 추가 ⬇️ ---
             const totals = { 
                 jobs: siteJobs.length, 
                 views: totalViews, 
                 applications: 0, 
-                duplicates: 0, // '중복' 카운트
+                duplicates: 0, 
+                rejectCancel: 0, // '거절/취소' 카운트
                 contacts: 0, 
                 interviews: 0, 
                 offers: 0, 
@@ -39,11 +40,11 @@ const SiteSummary = ({ jobs, dailyRecords, applicants, filter }) => {
             };
             
             siteApplicants.forEach(a => {
-                totals.applications++; // '지원'은 '중복', '불합격' 포함한 총 지원 수
+                totals.applications++; 
                 
                 if (a.status === '중복') totals.duplicates++;
+                if (a.status === '거절' || a.status === '취소') totals.rejectCancel++;
                 
-                // '컨택'부터는 '중복', '불합격' 제외
                 if (['컨택', '면접', '합격', '입사'].includes(a.status)) totals.contacts++;
                 if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++;
                 if (['합격', '입사'].includes(a.status)) totals.offers++;
@@ -56,31 +57,31 @@ const SiteSummary = ({ jobs, dailyRecords, applicants, filter }) => {
     }, [jobs, dailyRecords, applicants, filter]);
 
     return (
-        // --- ⬇️ (수정) 2열 -> 3열 그리드로 변경 (항목 6개) ⬇️ ---
-        <div className={`grid grid-cols-1 md:grid-cols-3 gap-4`}>
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4`}>
             {summaryData.map(data => (
                 <div key={data.key} className="border border-gray-200 rounded-lg p-4">
                     <h4 className="font-semibold text-lg mb-3">
                         {data.site} - <span className="text-blue-600">{data.position}</span>
                     </h4>
-                    {/* --- ⬇️ (수정) '중복' 항목 추가 및 레이아웃 2x3 그리드로 변경 ⬇️ --- */}
+                    {/* --- ⬇️ (수정) '거절/취소' 항목 추가 (8개 항목, 2x4 grid) ⬇️ --- */}
                     <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                         <div className="stat-item"><span className="stat-label">조회수:</span><span className="font-semibold">{data.views}</span></div>
                         <div className="stat-item"><span className="stat-label">지원자:</span><span className="font-semibold">{data.applications}</span></div>
                         
                         <div className="stat-item"><span className="stat-label">중복:</span><span className="font-semibold text-red-600">{data.duplicates}</span></div>
-                        <div className="stat-item"><span className="stat-label">컨택:</span><span className="font-semibold">{data.contacts}</span></div>
-                        
-                        <div className="stat-item"><span className="stat-label">면접:</span><span className="font-semibold">{data.interviews}</span></div>
-                        <div className="stat-item"><span className="stat-label">합격:</span><span className="font-semibold">{data.offers}</span></div>
+                        <div className="stat-item"><span className="stat-label">거절/취소:</span><span className="font-semibold text-red-600">{data.rejectCancel}</span></div>
 
-                        <div className="flex justify-between col-span-2 border-t pt-2 mt-1"><span className="text-gray-600 font-bold">입사:</span><span className="font-bold text-lg text-blue-600">{data.hires}명</span></div>
+                        <div className="stat-item"><span className="stat-label">컨택:</span><span className="font-semibold">{data.contacts}</span></div>
+                        <div className="stat-item"><span className="stat-label">면접:</span><span className="font-semibold">{data.interviews}</span></div>
+
+                        <div className="stat-item"><span className="stat-label">합격:</span><span className="font-semibold">{data.offers}</span></div>
+                        <div className="stat-item"><span className="stat-label">입사:</span><span className="font-semibold text-blue-600">{data.hires}</span></div>
                     </div>
                     {/* --- ⬆️ (수정) ⬆️ --- */}
                 </div>
             ))}
              {summaryData.length === 0 && (
-                <p className="text-gray-500 col-span-1 md:col-span-3 text-center py-4">
+                <p className="text-gray-500 col-span-1 md:col-span-2 lg:col-span-3 text-center py-4">
                     {filter ? `(${filter}) 사이트의 '영업' 또는 '강사' 유형 공고가 없습니다.` : "데이터가 없습니다."}
                 </p>
             )}
