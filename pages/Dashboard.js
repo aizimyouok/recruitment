@@ -99,21 +99,25 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
     const stats = useMemo(() => {
         const activeJobs = filteredData.filteredJobs.filter(j => j.status === '진행중');
         const totalViews = filteredData.filteredRecords.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
-        const totals = { applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 };
+        
+        // --- ⬇️ (수정) 'duplicates' 항목 추가 ⬇️ ---
+        const totals = { applications: 0, duplicates: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 };
         
         filteredData.filteredApplicants.forEach(a => {
             totals.applications++;
+            if (a.status === '중복') totals.duplicates++;
             if (['컨택', '면접', '합격', '입사'].includes(a.status)) totals.contacts++;
             if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++;
             if (['합격', '입사'].includes(a.status)) totals.offers++;
             if (a.status === '입사') totals.hires++;
         });
+        // --- ⬆️ (수정) ⬆️ ---
 
         const conversionRate = totals.applications > 0 ? ((totals.hires / totals.applications) * 100).toFixed(1) : 0;
 
         const targetYearMonth = dateRange.end.substring(0, 7);
         const currentGoal = goals.find(g => g.yearMonth === targetYearMonth);
-        let targetHires = 0; // 'let'으로 유지 (로컬 변수)
+        let targetHires = 0; 
         if (currentGoal) {
             targetHires = 0;
             if (selectedSites.length === 3) {
@@ -129,14 +133,15 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
         return {
             activeJobs: activeJobs.length, views: totalViews, ...totals,
             conversionRate, 
-            targetHires: targetHires, // 객체에 'targetHires' 값을 담아서 반환
+            targetHires: targetHires, 
             achievementRate
         };
-    }, [filteredData, selectedSites, selectedPositions, dateRange, goals]); // 'stats' 의존성 수정
+    }, [filteredData, selectedSites, selectedPositions, dateRange, goals]); 
 
     const radarChartData = useMemo(() => {
         const sites = ['사람인', '잡코리아', '인크루트'];
-        const labels = ['조회수', '지원자', '컨택', '면접', '합격', '입사'];
+        // --- ⬇️ (수정) '중복' 항목 추가 ⬇️ ---
+        const labels = ['조회수', '지원자', '중복', '컨택', '면접', '합격', '입사'];
         const datasets = sites.map((site, index) => {
             const siteJobs = jobs.filter(j => j.site === site); 
             const jobIds = siteJobs.map(j => j.id);
@@ -145,14 +150,17 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
             
             const views = siteRecords.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
             const applications = siteApplicants.length;
-            let contacts = 0, interviews = 0, offers = 0, hires = 0;
+            let duplicates = 0, contacts = 0, interviews = 0, offers = 0, hires = 0;
             siteApplicants.forEach(a => {
+                if (a.status === '중복') duplicates++;
                 if (['컨택', '면접', '합격', '입사'].includes(a.status)) contacts++;
                 if (['면접', '합격', '입사'].includes(a.status)) interviews++;
                 if (['합격', '입사'].includes(a.status)) offers++;
                 if (a.status === '입사') hires++;
             });
-            const data = [views, applications, contacts, interviews, offers, hires];
+            const data = [views, applications, duplicates, contacts, interviews, offers, hires];
+            // --- ⬆️ (수정) ⬆️ ---
+            
             const colors = ['rgba(59, 130, 246, 0.2)', 'rgba(16, 185, 129, 0.2)', 'rgba(245, 158, 11, 0.2)'];
             const borderColors = ['rgb(59, 130, 246)', 'rgb(16, 185, 129)', 'rgb(245, 158, 11)'];
             return {
@@ -178,17 +186,20 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
             const jobIds = posJobs.map(j => j.id);
             const posApplicants = dateFilteredApplicants.filter(a => jobIds.includes(a.appliedJobId));
             
-            const totals = { applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 };
+            // --- ⬇️ (수정) 'duplicates' 항목 추가 ⬇️ ---
+            const totals = { applications: 0, duplicates: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 };
             posApplicants.forEach(a => {
                 totals.applications++;
+                if (a.status === '중복') totals.duplicates++;
                 if (['컨택', '면접', '합격', '입사'].includes(a.status)) totals.contacts++;
                 if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++;
                 if (['합격', '입사'].includes(a.status)) totals.offers++;
                 if (a.status === '입사') totals.hires++;
             });
+            // --- ⬆️ (수정) ⬆️ ---
             return { position: pos, ...totals };
         });
-    }, [jobs, applicants, dateRange, dateRangeType, siteFilter, selectedSites]); // 의존성 수정
+    }, [jobs, applicants, dateRange, dateRangeType, siteFilter, selectedSites]);
 
 
     return (
@@ -264,8 +275,6 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                     <KPICard title="진행중인 공고" value={stats.activeJobs} icon="briefcase" color="blue" />
                     <KPICard title="총 지원자" value={stats.applications} icon="users" color="green" />
                     <KPICard title="총 면접 인원" value={stats.interviews} icon="user-check" color="purple" />
-                    
-                    {/* --- ⬇️ (오류 수정) 'targetHires' -> 'stats.targetHires'로 수정 ⬇️ --- */}
                     <KPICard 
                         title="입사자" 
                         value={`${stats.hires} / ${stats.targetHires}`} 
@@ -273,22 +282,23 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                         color="orange" 
                         subText={stats.targetHires > 0 ? `달성률 ${stats.achievementRate}%` : '목표 미설정'}
                     />
-                    {/* --- ⬆️ (오류 수정) ⬆️ --- */}
-
                 </div>
             )}
 
             {widgetSettings.conversion && (
                 <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
                     <h3 className="text-xl font-semibold mb-4">전환율 분석</h3>
+                    {/* --- ⬇️ (수정) '중복' 단계 추가 ⬇️ --- */}
                     <div className="flex items-center justify-around flex-wrap gap-4">
                         <ConversionStep label="조회" value={stats.views} /> <Icon name="chevron-right" className="text-gray-400" />
                         <ConversionStep label="지원" value={stats.applications} /> <Icon name="chevron-right" className="text-gray-400" />
+                        <ConversionStep label="중복" value={stats.duplicates} /> <Icon name="chevron-right" className="text-gray-400" />
                         <ConversionStep label="컨택" value={stats.contacts} /> <Icon name="chevron-right" className="text-gray-400" />
                         <ConversionStep label="면접" value={stats.interviews} /> <Icon name="chevron-right" className="text-gray-400" />
                         <ConversionStep label="합격" value={stats.offers} /> <Icon name="chevron-right" className="text-gray-400" />
                         <ConversionStep label="입사" value={stats.hires} />
                     </div>
+                    {/* --- ⬆️ (수정) ⬆️ --- */}
                     <div className="mt-6 text-center">
                         <p className="text-gray-600">총 전환율 (지원자 → 입사자)</p>
                         <p className="text-4xl font-bold text-blue-600">{stats.conversionRate}%</p>
@@ -342,13 +352,16 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                     {positionSummaryData.map(data => (
                         <div key={data.position} className="border border-gray-200 rounded-lg p-4">
                             <h4 className="font-semibold text-lg mb-3">{data.position}</h4>
+                            {/* --- ⬇️ (수정) '중복' 항목 추가 (6개 항목, 2x3 grid) ⬇️ --- */}
                             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                                 <div className="stat-item"><span className="stat-label">지원자:</span><span className="font-semibold">{data.applications}</span></div>
+                                <div className="stat-item"><span className="stat-label">중복:</span><span className="font-semibold text-red-600">{data.duplicates}</span></div>
                                 <div className="stat-item"><span className="stat-label">컨택:</span><span className="font-semibold">{data.contacts}</span></div>
                                 <div className="stat-item"><span className="stat-label">면접:</span><span className="font-semibold">{data.interviews}</span></div>
                                 <div className="stat-item"><span className="stat-label">합격:</span><span className="font-semibold">{data.offers}</span></div>
-                                <div className="flex justify-between col-span-2 border-t pt-2 mt-1"><span className="text-gray-600 font-bold">입사:</span><span className="font-bold text-lg text-blue-600">{data.hires}명</span></div>
+                                <div className="stat-item"><span className="stat-label">입사:</span><span className="font-semibold text-blue-600">{data.hires}</span></div>
                             </div>
+                            {/* --- ⬆️ (수정) ⬆️ --- */}
                         </div>
                     ))}
                 </div>
