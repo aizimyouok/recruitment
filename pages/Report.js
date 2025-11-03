@@ -22,7 +22,7 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
         roi: true,
         // 사이트 트렌드
         trends_lineChart: true, // 일별 추이 (라인)
-        trends_pieChart: true,  // 지원자 비율 (파이)
+        trends_pieChart: true,  // 지원자 비율 (파이) -> 막대그래프로 변경됨
         // 모집유형 분석
         position_pieChart: true, // 유형별 비율 (파이)
         position_summary: true, // 유형별 현황 (박스)
@@ -175,60 +175,85 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
         // (제안 3: 기간별 트렌드)
         if (sections.trends_lineChart || sections.trends_pieChart) {
             const dateMap = {}; 
+            
+            // --- ⬇️ (수정) 라인차트: '사이트-유형'별 '조회수'만 집계 ⬇️ ---
             if (sections.trends_lineChart) {
                 filteredRecords.forEach(r => {
-                    const site = jobIdToJob[r.jobId]?.site;
-                    if (!site || !selectedSites.includes(site)) return;
+                    const job = jobIdToJob[r.jobId];
+                    if (!job || !selectedSites.includes(job.site) || !selectedPositions.includes(job.position)) return;
+                    
+                    const comboKey = `${job.site}-${job.position}`;
                     dateMap[r.date] = dateMap[r.date] || {};
-                    dateMap[r.date][site] = dateMap[r.date][site] || { views: 0, apps: 0 };
-                    dateMap[r.date][site].views += r.viewsIncrease || 0;
+                    dateMap[r.date][comboKey] = dateMap[r.date][comboKey] || { views: 0 };
+                    dateMap[r.date][comboKey].views += r.viewsIncrease || 0;
                 });
             }
-            filteredApplicants.forEach(a => {
-                const site = jobIdToJob[a.appliedJobId]?.site;
-                if (!site || !selectedSites.includes(site)) return;
-
-                if (sections.trends_lineChart) {
-                    dateMap[a.appliedDate] = dateMap[a.appliedDate] || {};
-                    dateMap[a.appliedDate][site] = dateMap[a.appliedDate][site] || { views: 0, apps: 0 };
-                    dateMap[a.appliedDate][site].apps++;
-                }
-            });
+            // --- ⬆️ (수정) ⬆️ ---
 
             const allDates = Object.keys(dateMap).sort();
             const lineChartDatasets = [];
+            
+            // --- ⬇️ (수정) 라인차트: 데이터셋 생성 로직 변경 ⬇️ ---
             if(sections.trends_lineChart) {
                 const colors = {
-                    '사람인': { views: 'rgb(59, 130, 246)', apps: 'rgb(34, 197, 94)' },
-                    '잡코리아': { views: 'rgb(245, 158, 11)', apps: 'rgb(234, 179, 8)' },
-                    '인크루트': { views: 'rgb(139, 92, 246)', apps: 'rgb(217, 70, 239)' },
+                    '사람인-영업': 'rgb(59, 130, 246)',
+                    '사람인-강사': 'rgb(99, 102, 241)',
+                    '잡코리아-영업': 'rgb(245, 158, 11)',
+                    '잡코리아-강사': 'rgb(234, 179, 8)',
+                    '인크루트-영업': 'rgb(16, 185, 129)',
+                    '인크루트-강사': 'rgb(34, 197, 94)',
                 };
+                
+                const combinations = [];
                 selectedSites.forEach(site => {
-                    lineChartDatasets.push({
-                        label: `${site} - 조회수`,
-                        data: allDates.map(date => dateMap[date][site]?.views || 0),
-                        borderColor: colors[site]?.views || 'rgb(0,0,0)',
-                        tension: 0.1, borderDash: [5, 5]
+                    selectedPositions.forEach(pos => {
+                        combinations.push(`${site}-${pos}`);
                     });
+                });
+
+                combinations.forEach(combo => {
                     lineChartDatasets.push({
-                        label: `${site} - 지원자`,
-                        data: allDates.map(date => dateMap[date][site]?.apps || 0),
-                        borderColor: colors[site]?.apps || 'rgb(100,100,100)',
-                        tension: 0.1
+                        label: `${combo.replace('-', '(')}) - 조회수`,
+                        data: allDates.map(date => dateMap[date][combo]?.views || 0),
+                        borderColor: colors[combo] || 'rgb(100,100,100)',
+                        tension: 0.1,
+                        fill: false
                     });
                 });
             }
+            // --- ⬆️ (수정) ⬆️ ---
 
-            const siteData = selectedSites.map(site => {
-                const siteJobIds = jobs.filter(j => j.site === site).map(j => j.id);
+            // --- ⬇️ (수정) 파이차트 -> 막대차트: '사이트-유형'별 지원자 집계 ⬇️ ---
+            const combinations = [];
+            selectedSites.forEach(site => {
+                selectedPositions.forEach(pos => {
+                    combinations.push({ site, position: pos });
+                });
+            });
+
+            const sitePosData = combinations.map(combo => {
+                const siteJobIds = jobs.filter(j => j.site === combo.site && j.position === combo.position).map(j => j.id);
                 const siteApps = filteredApplicants.filter(a => siteJobIds.includes(a.appliedJobId));
-                return { site, count: siteApps.length };
+                return { key: `${combo.site}-${combo.position}`, count: siteApps.length };
             }).filter(d => d.count > 0);
-            const pieChartData = {
-                labels: siteData.map(d => d.site),
-                datasets: [{ data: siteData.map(d => d.count), backgroundColor: ['rgba(59, 130, 246, 0.8)', 'rgba(16, 185, 129, 0.8)', 'rgba(245, 158, 11, 0.8)'].slice(0, siteData.length) }]
+
+            const barChartData = {
+                labels: sitePosData.map(d => d.key.replace('-', '(') + ')'),
+                datasets: [{ 
+                    label: '지원자 수', 
+                    data: sitePosData.map(d => d.count), 
+                    backgroundColor: [
+                        'rgba(59, 130, 246, 0.8)', 
+                        'rgba(99, 102, 241, 0.8)',
+                        'rgba(245, 158, 11, 0.8)',
+                        'rgba(234, 179, 8, 0.8)',
+                        'rgba(16, 185, 129, 0.8)',
+                        'rgba(34, 197, 94, 0.8)'
+                    ].slice(0, sitePosData.length)
+                }]
             };
-            newReportData.trends = { lineChartData: { labels: allDates, datasets: lineChartDatasets }, pieChartData };
+            newReportData.trends = { lineChartData: { labels: allDates, datasets: lineChartDatasets }, barChartData: barChartData };
+            // --- ⬆️ (수정) ⬆️ ---
         }
         
         // '모집유형별 분석' 섹션 데이터
@@ -262,19 +287,32 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
         // (제안 4: 지원자 통계)
         if (sections.demographics_gender || sections.demographics_age) {
             const gender = { '남': 0, '여': 0 };
-            const ageGroups = { '20대 미만': 0, '20대': 0, '30대': 0, '40대': 0, '50대 이상': 0 };
+            // --- ⬇️ (수정) 연령대 집계 기준 변경 ⬇️ ---
+            const ageGroups = { 
+                '20 미만': 0, 
+                '20~29': 0, 
+                '30~39': 0, 
+                '40~45': 0, 
+                '46~50': 0, 
+                '51~55': 0, 
+                '56 이상': 0,
+                '미입력': 0
+            };
             filteredApplicants.forEach(a => {
                 if (a.gender === '남') gender['남']++;
                 else if (a.gender === '여') gender['여']++;
+                
                 const age = a.age;
-                if (age) {
-                    if (age < 20) ageGroups['20대 미만']++;
-                    else if (age < 30) ageGroups['20대']++;
-                    else if (age < 40) ageGroups['30대']++;
-                    else if (age < 50) ageGroups['40대']++;
-                    else ageGroups['50대 이상']++;
-                }
+                if (!age) { ageGroups['미입력']++; }
+                else if (age < 20) { ageGroups['20 미만']++; }
+                else if (age <= 29) { ageGroups['20~29']++; }
+                else if (age <= 39) { ageGroups['30~39']++; }
+                else if (age <= 45) { ageGroups['40~45']++; }
+                else if (age <= 50) { ageGroups['46~50']++; }
+                else if (age <= 55) { ageGroups['51~55']++; }
+                else { ageGroups['56 이상']++; }
             });
+            // --- ⬆️ (수정) ⬆️ ---
             newReportData.demographics = { gender, ageGroups };
         }
 
@@ -411,7 +449,7 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                             <span className="font-semibold text-gray-700">사이트 트렌드</span>
                             <div className="space-y-2 pl-4">
                                 <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={sections.trends_lineChart} onChange={() => handleSectionToggle('trends_lineChart')} /> <span>일별 추이 (라인)</span></label>
-                                <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={sections.trends_pieChart} onChange={() => handleSectionToggle('trends_pieChart')} /> <span>지원자 비율 (파이)</span></label>
+                                <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={sections.trends_pieChart} onChange={() => handleSectionToggle('trends_pieChart')} /> <span>지원자 현황 (막대)</span></label>
                             </div>
                         </div>
 
@@ -493,22 +531,40 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                         )}
 
                         {/* 섹션 3: 기간별 트렌드 */}
+                        {/* --- ⬇️ (수정) JSX 렌더링 수정 (제목 변경, pie -> bar) ⬇️ --- */}
                         {(sections.trends_lineChart || sections.trends_pieChart) && reportData.trends && (
                             <ReportSection title="사이트별 트렌드">
                                 {sections.trends_lineChart && (
                                     <>
-                                        <h4 className="text-lg font-semibold mb-3">일별 조회수 및 지원자 추이 (사이트별)</h4>
-                                        <div className="w-full h-64 mb-6"><ChartComponent type="line" data={reportData.trends.lineChartData} options={{ scales: { y: { beginAtZero: true } } }} /></div>
+                                        <h4 className="text-lg font-semibold mb-3">일별 조회수 추이 (사이트/유형별)</h4>
+                                        <div className="w-full h-64 mb-6"><ChartComponent type="line" data={reportData.trends.lineChartData} options={{ scales: { y: { beginAtZero: true } }, plugins: { datalabels: { display: false } } }} /></div>
                                     </>
                                 )}
                                 {sections.trends_pieChart && (
                                     <>
-                                        <h4 className="text-lg font-semibold mb-3">사이트별 지원자 비율</h4>
-                                        <div className="w-full h-64"><ChartComponent type="pie" data={reportData.trends.pieChartData} options={{ plugins: { datalabels: { display: true, color: 'white', font: { weight: 'bold', size: 12 }, formatter: (value, ctx) => { const dataset = ctx.chart.data.datasets[0]; const total = dataset.data.reduce((acc, data) => acc + data, 0); const percentage = (value * 100 / total).toFixed(1) + '%'; return `${value}명\n(${percentage})`; } }, tooltip: { callbacks: { label: (ctx) => { const label = ctx.label || ''; const value = ctx.raw || 0; const dataset = ctx.dataset.data; const total = dataset.reduce((acc, data) => acc + data, 0); const percentage = (value * 100 / total).toFixed(1) + '%'; return `${label}: ${value}명 (${percentage})`; } } } } }} /></div>
+                                        <h4 className="text-lg font-semibold mb-3">사이트/유형별 지원자 현황</h4>
+                                        <div className="w-full h-64"><ChartComponent type="bar" data={reportData.trends.barChartData} options={{ 
+                                            scales: { y: { beginAtZero: true } }, 
+                                            plugins: { 
+                                                datalabels: { 
+                                                    display: true, 
+                                                    anchor: 'end', 
+                                                    align: 'top', 
+                                                    color: '#333', 
+                                                    font: { weight: 'bold' } 
+                                                }, 
+                                                tooltip: { 
+                                                    callbacks: { 
+                                                        label: (ctx) => `${ctx.label}: ${ctx.raw}명` 
+                                                    } 
+                                                } 
+                                            } 
+                                        }} /></div>
                                     </>
                                 )}
                             </ReportSection>
                         )}
+                        {/* --- ⬆️ (수정) ⬆️ --- */}
                         
                         {/* '모집유형별 분석' 섹션 */}
                         {(sections.position_pieChart || sections.position_summary) && reportData.positionAnalysis && (
@@ -542,6 +598,7 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                         )}
 
                         {/* 섹션 4: 지원자 통계 */}
+                        {/* --- ⬇️ (수정) 연령대 집계 기준 변경에 따라 JSX 자동 반영 ⬇️ --- */}
                         {(sections.demographics_gender || sections.demographics_age) && reportData.demographics && (
                             <ReportSection title="지원자 통계">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -568,6 +625,7 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                                 </div>
                             </ReportSection>
                         )}
+                        {/* --- ⬆️ (수정) ⬆️ --- */}
 
                         {/* 섹션 5: 상세 데이터 */}
                         {sections.rawData && reportData.rawData && (
