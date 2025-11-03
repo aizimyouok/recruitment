@@ -111,7 +111,7 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
 
             if (['컨택', '면접', '합격', '입사'].includes(a.status)) totals.contacts++;
             if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++;
-            if (['합격', '입사'].includes(a.status)) totals.offers++;
+            if (['합격', '입사'].includes(a.status)) totals.offers++; // '합격'은 '합격'과 '입사'를 모두 포함
             if (a.status === '입사') totals.hires++;
         });
         // --- ⬆️ (수정) ⬆️ ---
@@ -142,9 +142,9 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
     }, [filteredData, selectedSites, selectedPositions, dateRange, goals]); 
 
     const radarChartData = useMemo(() => {
+        // --- ⬇️ (수정) 레이더 차트 레이블 및 로직 수정 ⬇️ ---
         const sites = ['사람인', '잡코리아', '인크루트'];
-        // --- ⬇️ (수정) '불합격' 항목 추가 (중복, 거절/취소는 제외) ⬇️ ---
-        const labels = ['조회수', '지원자', '컨택', '면접', '합격', '불합격', '입사'];
+        const labels = ['조회수', '지원자', '중복', '거절/취소', '컨택', '면접', '합격', '불합격', '입사'];
         const datasets = sites.map((site, index) => {
             const siteJobs = jobs.filter(j => j.site === site); 
             const jobIds = siteJobs.map(j => j.id);
@@ -153,16 +153,18 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
             
             const views = siteRecords.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
             const applications = siteApplicants.length;
-            let contacts = 0, interviews = 0, offers = 0, fails = 0, hires = 0;
+            let duplicates = 0, rejectCancel = 0, contacts = 0, interviews = 0, offers = 0, fails = 0, hires = 0;
+            
             siteApplicants.forEach(a => {
-                // (중복, 거절/취소는 차트에서 제외)
+                if (a.status === '중복') duplicates++;
+                if (a.status === '거절' || a.status === '취소') rejectCancel++;
                 if (a.status === '불합격') fails++;
                 if (['컨택', '면접', '합격', '입사'].includes(a.status)) contacts++;
                 if (['면접', '합격', '입사'].includes(a.status)) interviews++;
                 if (['합격', '입사'].includes(a.status)) offers++;
                 if (a.status === '입사') hires++;
             });
-            const data = [views, applications, contacts, interviews, offers, fails, hires];
+            const data = [views, applications, duplicates, rejectCancel, contacts, interviews, offers, fails, hires];
             // --- ⬆️ (수정) ⬆️ ---
             
             const colors = ['rgba(59, 130, 246, 0.2)', 'rgba(16, 185, 129, 0.2)', 'rgba(245, 158, 11, 0.2)'];
@@ -326,7 +328,7 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                             </button>
                         )}
                     </div>
-                    {/* (참고: SiteSummary.js는 1단계에서 이미 '거절/취소'가 적용되었습니다.) */}
+                    {/* SiteSummary.js는 1단계에서 이미 '거절/취소'가 적용되었습니다. */}
                     <SiteSummary 
                         jobs={jobs} 
                         dailyRecords={dailyRecords} 
@@ -362,7 +364,7 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                     {positionSummaryData.map(data => (
                         <div key={data.position} className="border border-gray-200 rounded-lg p-4">
                             <h4 className="font-semibold text-lg mb-3">{data.position}</h4>
-                            {/* --- ⬇️ (수정) '중복', '거절/취소', '합격/불합격' 포맷 적용 (6+1 layout) ⬇️ --- */}
+                            {/* --- ⬇️ (수정) '중복', '거절/취소', '합격/불합격' 포맷 적용 (8개 항목) ⬇️ --- */}
                             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                                 <div className="stat-item"><span className="stat-label">지원자:</span><span className="font-semibold">{data.applications}</span></div>
                                 <div className="stat-item"><span className="stat-label">중복:</span><span className="font-semibold text-red-600">{data.duplicates}</span></div>
@@ -375,8 +377,8 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                                         <span className="text-green-600">{data.offers}</span> / <span className="text-red-600">{data.fails}</span>
                                     </span>
                                 </div>
+                                <div className="flex justify-between col-span-2 border-t pt-2 mt-1"><span className="text-gray-600 font-bold">입사:</span><span className="font-bold text-lg text-blue-600">{data.hires}명</span></div>
                             </div>
-                            <div className="flex justify-between col-span-2 border-t pt-2 mt-1"><span className="text-gray-600 font-bold">입사:</span><span className="font-bold text-lg text-blue-600">{data.hires}명</span></div>
                             {/* --- ⬆️ (수정) ⬆️ --- */}
                         </div>
                     ))}
