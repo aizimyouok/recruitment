@@ -19,19 +19,19 @@ const SiteSummary = ({ jobs, dailyRecords, applicants, filter }) => {
         return combinations.map(combo => {
             const { site, position } = combo;
 
-            // 3. 해당 조합(예: '사람인'의 '영업')에 해당하는 공고(jobs) 필터링
             const siteJobs = jobs.filter(j => j.site === site && j.position === position);
             const jobIds = siteJobs.map(j => j.id);
 
-            // 4. 해당 공고 ID를 기반으로 데이터 집계
             const siteRecords = dailyRecords.filter(r => jobIds.includes(r.jobId));
             const totalViews = siteRecords.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
             const siteApplicants = applicants.filter(a => jobIds.includes(a.appliedJobId));
             
+            // --- ⬇️ (수정) 'duplicates' 항목 추가 ⬇️ ---
             const totals = { 
                 jobs: siteJobs.length, 
                 views: totalViews, 
                 applications: 0, 
+                duplicates: 0, // '중복' 카운트
                 contacts: 0, 
                 interviews: 0, 
                 offers: 0, 
@@ -39,42 +39,48 @@ const SiteSummary = ({ jobs, dailyRecords, applicants, filter }) => {
             };
             
             siteApplicants.forEach(a => {
-                // '지원'은 '중복', '불합격'을 포함한 모든 최초 지원을 의미
-                totals.applications++; 
+                totals.applications++; // '지원'은 '중복', '불합격' 포함한 총 지원 수
                 
-                // '컨택'부터는 '중복', '불합격'을 제외한 실제 진행 건
+                if (a.status === '중복') totals.duplicates++;
+                
+                // '컨택'부터는 '중복', '불합격' 제외
                 if (['컨택', '면접', '합격', '입사'].includes(a.status)) totals.contacts++;
                 if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++;
                 if (['합격', '입사'].includes(a.status)) totals.offers++;
                 if (a.status === '입사') totals.hires++;
             });
+            // --- ⬆️ (수정) ⬆️ ---
 
             return { key: `${site}-${position}`, site, position, ...totals };
-        }).filter(data => data.jobs > 0); // 공고가 1개라도 있는 항목만 표시
+        }).filter(data => data.jobs > 0); 
     }, [jobs, dailyRecords, applicants, filter]);
 
     return (
-        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4`}>
+        // --- ⬇️ (수정) 2열 -> 3열 그리드로 변경 (항목 6개) ⬇️ ---
+        <div className={`grid grid-cols-1 md:grid-cols-3 gap-4`}>
             {summaryData.map(data => (
                 <div key={data.key} className="border border-gray-200 rounded-lg p-4">
                     <h4 className="font-semibold text-lg mb-3">
                         {data.site} - <span className="text-blue-600">{data.position}</span>
                     </h4>
+                    {/* --- ⬇️ (수정) '중복' 항목 추가 및 레이아웃 2x3 그리드로 변경 ⬇️ --- */}
                     <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                        {/* --- ⬇️ (수정) '공고 수' 항목 제거 ⬇️ --- */}
-                        {/* <div className="stat-item"><span className="stat-label">공고 수:</span><span className="font-semibold">{data.jobs}</span></div> */}
                         <div className="stat-item"><span className="stat-label">조회수:</span><span className="font-semibold">{data.views}</span></div>
                         <div className="stat-item"><span className="stat-label">지원자:</span><span className="font-semibold">{data.applications}</span></div>
+                        
+                        <div className="stat-item"><span className="stat-label">중복:</span><span className="font-semibold text-red-600">{data.duplicates}</span></div>
                         <div className="stat-item"><span className="stat-label">컨택:</span><span className="font-semibold">{data.contacts}</span></div>
+                        
                         <div className="stat-item"><span className="stat-label">면접:</span><span className="font-semibold">{data.interviews}</span></div>
                         <div className="stat-item"><span className="stat-label">합격:</span><span className="font-semibold">{data.offers}</span></div>
-                        {/* --- ⬆️ (수정) ⬆️ --- */}
+
                         <div className="flex justify-between col-span-2 border-t pt-2 mt-1"><span className="text-gray-600 font-bold">입사:</span><span className="font-bold text-lg text-blue-600">{data.hires}명</span></div>
                     </div>
+                    {/* --- ⬆️ (수정) ⬆️ --- */}
                 </div>
             ))}
              {summaryData.length === 0 && (
-                <p className="text-gray-500 col-span-1 md:col-span-2 text-center py-4">
+                <p className="text-gray-500 col-span-1 md:col-span-3 text-center py-4">
                     {filter ? `(${filter}) 사이트의 '영업' 또는 '강사' 유형 공고가 없습니다.` : "데이터가 없습니다."}
                 </p>
             )}
