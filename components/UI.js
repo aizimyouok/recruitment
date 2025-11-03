@@ -17,7 +17,10 @@ const Button = ({ variant = 'primary', className, children, ...props }) => {
 const ApplicantStatusBadge = ({ status }) => {
     const colors = { 
         '지원': 'badge-blue', 
-        '컨택': 'badge-yellow',  // ✅ '서류검토' → '컨택'으로 변경
+        // --- ⬇️ (수정) '중복' 상태 추가 ⬇️ ---
+        '중복': 'badge-gray',   
+        '컨택': 'badge-yellow',
+        // --- ⬆️ (수정) ⬆️ ---
         '면접': 'bg-purple-100 text-purple-800', 
         '합격': 'badge-green', 
         '입사': 'bg-emerald-100 text-emerald-800', 
