@@ -12,7 +12,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
         jobFilter: 'all'
     });
 
-    // --- ⬇️ (수정) 모든 항목의 기본값을 'true'로 변경 ⬇️ ---
     // 2. 리포트 섹션 선택 상태
     const [sections, setSections] = useState({
         // 채용 퍼널
@@ -32,7 +31,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
         // 상세 데이터
         rawData: true
     });
-    // --- ⬆️ (수정) ⬆️ ---
     
     // 3. 상세 목록 컬럼 선택 상태
     const [columns, setColumns] = useState({
@@ -50,6 +48,65 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
 
     // 4. 생성된 리포트 데이터 상태
     const [reportData, setReportData] = useState(null);
+
+    // --- ⬇️ PDF 생성 로직 추가 ⬇️ ---
+    const [isPrinting, setIsPrinting] = useState(false);
+
+    const handlePrintPdf = async () => {
+        // (라이브러리는 index.html에서 전역으로 로드됨)
+        const { jsPDF } = window.jspdf;
+        const html2canvas = window.html2canvas;
+
+        const elementToPrint = document.querySelector('.report-print-area');
+        if (!elementToPrint) {
+            alert('리포트 영역을 찾을 수 없습니다.');
+            return;
+        }
+        
+        setIsPrinting(true);
+
+        try {
+            const canvas = await html2canvas(elementToPrint, {
+                scale: 2, // 텍스트 품질 향상을 위해 배율 2로 캡처
+                useCORS: true
+            });
+
+            const imgData = canvas.toDataURL('image/png');
+            
+            // A4 가로(landscape) 크기 (297mm x 210mm)
+            const pdf = new jsPDF('l', 'mm', 'a4');
+            const pageW = pdf.internal.pageSize.getWidth(); // 297
+            const pageH = pdf.internal.pageSize.getHeight(); // 210
+
+            const imgW = canvas.width;
+            const imgH = canvas.height;
+
+            // 이미지 비율을 유지하면서 A4 가로 한 페이지에 맞추기
+            const widthRatio = pageW / imgW;
+            const heightRatio = pageH / imgH;
+            const ratio = Math.min(widthRatio, heightRatio); // 페이지에 맞추기 위해 더 작은 비율 선택
+
+            const finalImgW = imgW * ratio;
+            const finalImgH = imgH * ratio;
+
+            // 페이지 중앙에 이미지 배치
+            const x_pos = (pageW - finalImgW) / 2;
+            const y_pos = (pageH - finalImgH) / 2;
+
+            pdf.addImage(imgData, 'PNG', x_pos, y_pos, finalImgW, finalImgH);
+            
+            // 파일명 날짜 추가
+            const today = new Date().toISOString().split('T')[0];
+            pdf.save(`채용리포트_${today}.pdf`);
+
+        } catch (error) {
+            console.error("PDF 생성 오류:", error);
+            alert('PDF 생성 중 오류가 발생했습니다.');
+        } finally {
+            setIsPrinting(false);
+        }
+    };
+    // --- ⬆️ PDF 생성 로직 추가 ⬆️ ---
     
     // 필터 변경 핸들러
     const handleFilterChange = (key, value) => {
@@ -485,9 +542,11 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                             <h2 className="text-3xl font-bold text-gray-800">{reportTitle}</h2>
                             <p className="text-gray-600">생성일: {new Date().toLocaleString()}</p>
                         </div>
-                        <Button variant="secondary" onClick={() => window.print()} className="no-print flex items-center space-x-2">
-                            <Icon name="printer" size={18} /> <span>인쇄하기</span>
+                        {/* --- ⬇️ (수정) 버튼 onClick, disabled, 텍스트 변경 ⬇️ --- */}
+                        <Button variant="secondary" onClick={handlePrintPdf} disabled={isPrinting} className="no-print flex items-center space-x-2">
+                            <Icon name="printer" size={18} /> <span>{isPrinting ? 'PDF 생성 중...' : 'PDF로 저장'}</span>
                         </Button>
+                        {/* --- ⬆️ (수정) ⬆️ --- */}
                     </div>
                     
                     <div className="space-y-10">
