@@ -4,7 +4,6 @@ const { useMemo } = React;
 
 const SiteComparison = ({ jobs, applicants, dailyRecords }) => {
     
-    // --- ⬇️ (수정) 집계 기준 변경: 'site' -> '(site, position)' 조합 ⬇️ ---
     const combinations = [
         { site: '사람인', position: '영업' },
         { site: '사람인', position: '강사' },
@@ -26,6 +25,7 @@ const SiteComparison = ({ jobs, applicants, dailyRecords }) => {
             
             const siteApplicants = applicants.filter(a => jobIds.includes(a.appliedJobId));
             
+            // --- ⬇️ (수정) 'duplicates', 'rejectCancel', 'fails' 항목 추가 ⬇️ ---
             const totals = { 
                 key: `${site}-${position}`,
                 site, 
@@ -33,60 +33,75 @@ const SiteComparison = ({ jobs, applicants, dailyRecords }) => {
                 jobs: siteJobs.length, 
                 views: totalViews, 
                 applications: 0, 
+                duplicates: 0,
+                rejectCancel: 0,
                 contacts: 0, 
                 interviews: 0, 
                 offers: 0, 
+                fails: 0,
                 hires: 0 
             };
             
             siteApplicants.forEach(a => { 
                 totals.applications++; 
+                if (a.status === '중복') totals.duplicates++;
+                if (a.status === '거절' || a.status === '취소') totals.rejectCancel++;
+                if (a.status === '불합격') totals.fails++;
+
                 if (['컨택', '면접', '합격', '입사'].includes(a.status)) totals.contacts++;
                 if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++; 
                 if (['합격', '입사'].includes(a.status)) totals.offers++; 
                 if (a.status === '입사') totals.hires++; 
             });
+            // --- ⬆️ (수정) ⬆️ ---
             
             totals.conversionRate = totals.applications > 0 ? ((totals.hires / totals.applications) * 100).toFixed(1) : 0;
             return totals;
 
-        }).filter(data => data.jobs > 0); // 공고가 1개라도 있는 항목만 표시
+        }).filter(data => data.jobs > 0); 
     }, [jobs, applicants, dailyRecords]);
     
-    // 차트 데이터도 (사이트 x 유형) 기준으로 변경
+    // --- ⬇️ (수정) 차트 데이터셋에 '불합격' 추가 (가독성을 위해 중복/거절은 제외) ⬇️ ---
     const chartData = {
         labels: siteData.map(d => `${d.site} (${d.position})`),
         datasets: [ 
             { label: '지원자', data: siteData.map(d => d.applications), backgroundColor: 'rgba(59, 130, 246, 0.8)' }, 
             { label: '컨택', data: siteData.map(d => d.contacts), backgroundColor: 'rgba(234, 179, 8, 0.8)' },
             { label: '면접', data: siteData.map(d => d.interviews), backgroundColor: 'rgba(139, 92, 246, 0.8)' }, 
-            { label: '입사자', data: siteData.map(d => d.hires), backgroundColor: 'rgba(16, 185, 129, 0.8)' } 
+            { label: '합격', data: siteData.map(d => d.offers), backgroundColor: 'rgba(16, 185, 129, 0.8)' },
+            { label: '불합격', data: siteData.map(d => d.fails), backgroundColor: 'rgba(239, 68, 68, 0.8)' },
+            { label: '입사자', data: siteData.map(d => d.hires), backgroundColor: 'rgba(22, 163, 74, 0.8)' } 
         ]
     };
-    // --- ⬆️ (수정) 집계 로직 완료 ⬆️ ---
+    // --- ⬆️ (수정) ⬆️ ---
 
     return (
         <div className="p-4 md:p-8">
             <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-8">사이트/유형 비교</h2>
-            {/* --- ⬇️ (수정) 3열 -> 2열 그리드로 변경 ⬇️ --- */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 {siteData.map(data => (
                     <div key={data.key} className="bg-white rounded-xl shadow-lg p-6">
-                        {/* --- ⬇️ (수정) 타이틀 변경 ⬇️ --- */}
                         <h3 className="text-xl font-bold text-center mb-6">
                             {data.site} - <span className="text-blue-600">{data.position}</span>
                         </h3>
-                        {/* --- ⬆️ (수정) ⬆️ --- */}
+                        {/* --- ⬇️ (수정) '중복', '거절/취소', '합격/불합격' 포맷 적용 ⬇️ --- */}
                         <div className="space-y-3">
-                            <div className="stat-item"><span className="stat-label">공고 수</span><span className="stat-value">{data.jobs}</span></div>
                             <div className="stat-item"><span className="stat-label">조회수</span><span className="stat-value">{data.views}</span></div>
                             <div className="stat-item"><span className="stat-label">지원자</span><span className="stat-value">{data.applications}</span></div>
+                            <div className="stat-item"><span className="stat-label">중복</span><span className="stat-value text-red-600">{data.duplicates}</span></div>
+                            <div className="stat-item"><span className="stat-label">거절/취소</span><span className="stat-value text-red-600">{data.rejectCancel}</span></div>
                             <div className="stat-item"><span className="stat-label">컨택</span><span className="stat-value">{data.contacts}</span></div>
                             <div className="stat-item"><span className="stat-label">면접</span><span className="stat-value">{data.interviews}</span></div>
-                            <div className="stat-item"><span className="stat-label">합격자</span><span className="stat-value">{data.offers}</span></div>
-                            <div className="stat-item"><span className="stat-label">입사자</span><span className="stat-value text-green-600">{data.hires}</span></div>
+                            <div className="stat-item">
+                                <span className="stat-label">합격/불합격</span>
+                                <span className="font-semibold">
+                                    <span className="text-green-600">{data.offers}</span> / <span className="text-red-600">{data.fails}</span>
+                                </span>
+                            </div>
+                            <div className="stat-item"><span className="stat-label">입사자</span><span className="stat-value text-blue-600">{data.hires}</span></div>
                             <div className="flex justify-between items-center pt-2"><span className="text-gray-600 font-semibold">전환율</span><span className="text-2xl font-bold text-blue-600">{data.conversionRate}%</span></div>
                         </div>
+                        {/* --- ⬆️ (수정) ⬆️ --- */}
                     </div>
                 ))}
             </div>
