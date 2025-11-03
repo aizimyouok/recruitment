@@ -7,7 +7,6 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
     const [editingApplicant, setEditingApplicant] = useState(null);
     const [formData, setFormData] = useState({ name: '', gender: '남', age: '', contactInfo: '', appliedJobId: '', appliedDate: new Date().toISOString().split('T')[0], status: '지원', memo: '' });
     
-    // --- (수정) 필터 상태: 날짜 필터 state 추가 ---
     const [filters, setFilters] = useState({
         sites: { '사람인': true, '잡코리아': true, '인크루트': true },
         positions: { '영업': true, '강사': true },
@@ -15,12 +14,14 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
     });
     const [dateRangeType, setDateRangeType] = useState('all');
     const [customRange, setCustomRange] = useState({ start: '', end: '' });
-    // --- (수정) ---
 
     const [searchTerm, setSearchTerm] = useState('');
 
     const activeJobs = useMemo(() => jobs.filter(j => j.status === '진행중'), [jobs]);
-    const applicantStatuses = ['지원', '컨택', '면접', '합격', '입사', '불합격'];
+    
+    // --- ⬇️ (수정) '중복' 상태 추가 ⬇️ ---
+    const applicantStatuses = ['지원', '중복', '컨택', '면접', '합격', '입사', '불합격'];
+    // --- ⬆️ (수정) ⬆️ ---
 
     useEffect(() => {
         if (!editingApplicant && activeJobs.length > 0 && !formData.appliedJobId) {
@@ -28,7 +29,6 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
         }
     }, [activeJobs, editingApplicant, formData.appliedJobId]);
 
-    // --- ⬇️ (추가) 날짜 범위 계산 로직 (Dashboard.js와 동일) ⬇️ ---
     const dateRange = useMemo(() => {
         const today = new Date();
         const todayStr = today.toISOString().split('T')[0];
@@ -45,7 +45,6 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
         }
         return { start: null, end: todayStr };
     }, [dateRangeType, customRange]);
-    // --- ⬆️ (추가) ⬆️ ---
 
     // 다중 선택 필터 핸들러
     const handleSiteFilterChange = (siteKey) => {
@@ -144,7 +143,6 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
         }
     };
 
-    // --- ⬇️ (수정) 필터링 로직: 날짜 필터(dateMatch) 추가 ⬇️ ---
     const filteredApplicants = useMemo(() => {
         return applicants.filter(a => {
             const job = jobIdToJob[a.appliedJobId];
@@ -155,23 +153,19 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
             const statusMatch = filters.status === 'all' || a.status === filters.status;
             const nameMatch = searchTerm === '' || (a.name && a.name.toLowerCase().includes(searchTerm.toLowerCase()));
             
-            // 5. 날짜 필터 (신규 추가)
             const dateMatch = (dateRangeType === 'all') ? true : (
-                a.appliedDate && // 지원일 데이터가 있는지 확인
+                a.appliedDate && 
                 a.appliedDate >= dateRange.start && 
                 a.appliedDate <= dateRange.end
             );
             
-            return siteMatch && positionMatch && statusMatch && nameMatch && dateMatch; // dateMatch 추가
+            return siteMatch && positionMatch && statusMatch && nameMatch && dateMatch;
         });
-    }, [applicants, filters, searchTerm, jobIdToJob, selectedSites, selectedPositions, dateRange, dateRangeType]); // dateRange, dateRangeType 의존성 추가
-    // --- ⬆️ (수정) ⬆️ ---
+    }, [applicants, filters, searchTerm, jobIdToJob, selectedSites, selectedPositions, dateRange, dateRangeType]);
 
-    // --- ⬇️ (수정) getJobSite 함수 추가 ⬇️ ---
     const getJobTitle = useCallback((jobId) => jobIdToJob[jobId]?.title || 'N/A', [jobIdToJob]);
     const getJobPosition = useCallback((jobId) => jobIdToJob[jobId]?.position || 'N/A', [jobIdToJob]);
     const getJobSite = useCallback((jobId) => jobIdToJob[jobId]?.site || 'N/A', [jobIdToJob]);
-    // --- ⬆️ (수정) ⬆️ ---
 
     return (
         <div className="p-4 md:p-8">
@@ -213,7 +207,6 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
                 </div>
             )}
 
-            {/* --- ⬇️ (수정) 필터 바 레이아웃 및 '날짜 필터' 추가 ⬇️ --- */}
             <div className="bg-white rounded-xl shadow-lg p-4 mb-6">
                 <div className="flex flex-wrap items-start gap-x-6 gap-y-4">
                     {/* 1. 이름 검색 */}
@@ -222,7 +215,7 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
                         <Input type="text" placeholder="이름 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                     </div>
                     
-                    {/* 2. 날짜 필터 (신규 추가) */}
+                    {/* 2. 날짜 필터 */}
                     <div>
                          <label className="label-style">지원일</label>
                          <div className="flex flex-wrap items-center gap-2">
@@ -274,22 +267,17 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
                     </div>
                 </div>
             </div>
-            {/* --- ⬆️ (수정) ⬆️ --- */}
 
             <div className="bg-white rounded-xl shadow-lg overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                        {/* --- ⬇️ (수정) 테이블 헤더에 '지원사이트' 추가 ⬇️ --- */}
                         <thead className="bg-gray-50"><tr><th className="th-style">이름</th><th className="th-style">성별</th><th className="th-style">나이</th><th className="th-style">연락처</th><th className="th-style">지원사이트</th><th className="th-style">지원 공고</th><th className="th-style">모집유형</th><th className="th-style">지원일</th><th className="th-style">상태</th><th className="th-style">작업</th></tr></thead>
-                        {/* --- ⬆️ (수정) ⬆️ --- */}
                         <tbody className="divide-y divide-gray-200">
                             {filteredApplicants.map(applicant => (
                                 <tr key={applicant.id} className="hover:bg-gray-50">
                                     <td className="td-style table-cell-nowrap">{applicant.name}</td><td className="td-style table-cell-nowrap">{applicant.gender}</td><td className="td-style table-cell-nowrap">{applicant.age}</td>
                                     <td className="td-style table-cell-nowrap">{applicant.contactInfo}</td>
-                                    {/* --- ⬇️ (추가) '지원사이트' 데이터 셀 ⬇️ --- */}
                                     <td className="td-style table-cell-nowrap">{getJobSite(applicant.appliedJobId)}</td>
-                                    {/* --- ⬆️ (추가) ⬆️ --- */}
                                     <td className="td-style table-cell-nowrap">{getJobTitle(applicant.appliedJobId)}</td>
                                     <td className="td-style table-cell-nowrap">{getJobPosition(applicant.appliedJobId)}</td>
                                     <td className="td-style table-cell-nowrap">{applicant.appliedDate}</td>
