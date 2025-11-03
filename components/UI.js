@@ -17,14 +17,16 @@ const Button = ({ variant = 'primary', className, children, ...props }) => {
 const ApplicantStatusBadge = ({ status }) => {
     const colors = { 
         '지원': 'badge-blue', 
-        // --- ⬇️ (수정) '중복' 상태 추가 ⬇️ ---
         '중복': 'badge-gray',   
         '컨택': 'badge-yellow',
-        // --- ⬆️ (수정) ⬆️ ---
         '면접': 'bg-purple-100 text-purple-800', 
         '합격': 'badge-green', 
         '입사': 'bg-emerald-100 text-emerald-800', 
+        // --- ⬇️ (수정) '거절', '취소' 스타일 추가 ⬇️ ---
+        '거절': 'badge-red',
+        '취소': 'badge-red',
         '불합격': 'badge-red' 
+        // --- ⬆️ (수정) ⬆️ ---
     };
     return <span className={`px-2 py-1 text-xs font-semibold rounded-full ${colors[status] || 'badge-gray'}`}>{status || '미지정'}</span>;
 };
