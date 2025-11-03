@@ -19,8 +19,8 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
 
     const activeJobs = useMemo(() => jobs.filter(j => j.status === '진행중'), [jobs]);
     
-    // --- ⬇️ (수정) '중복' 상태 추가 ⬇️ ---
-    const applicantStatuses = ['지원', '중복', '컨택', '면접', '합격', '입사', '불합격'];
+    // --- ⬇️ (수정) '거절', '취소' 상태 추가 ⬇️ ---
+    const applicantStatuses = ['지원', '중복', '컨택', '면접', '합격', '입사', '거절', '취소', '불합격'];
     // --- ⬆️ (수정) ⬆️ ---
 
     useEffect(() => {
@@ -161,7 +161,7 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
             
             return siteMatch && positionMatch && statusMatch && nameMatch && dateMatch;
         });
-    }, [applicants, filters, searchTerm, jobIdToJob, selectedSites, selectedPositions, dateRange, dateRangeType]);
+    }, [applicants, filters, searchTerm, jobIdToJob, selectedSites, selectedPositions, dateRange, dateRangeType]); 
 
     const getJobTitle = useCallback((jobId) => jobIdToJob[jobId]?.title || 'N/A', [jobIdToJob]);
     const getJobPosition = useCallback((jobId) => jobIdToJob[jobId]?.position || 'N/A', [jobIdToJob]);
