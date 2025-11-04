@@ -26,7 +26,6 @@ const SiteSummary = ({ jobs, dailyRecords, applicants, filter }) => {
             const totalViews = siteRecords.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
             const siteApplicants = applicants.filter(a => jobIds.includes(a.appliedJobId));
             
-            // --- ⬇️ (수정) 'rejectCancel'을 'reject'와 'cancel'로 분리, 'fails', 'exclude' 추가 ⬇️ ---
             const totals = { 
                 jobs: siteJobs.length, 
                 views: totalViews, 
@@ -42,19 +41,52 @@ const SiteSummary = ({ jobs, dailyRecords, applicants, filter }) => {
                 exclude: 0 // '제외'
             };
             
+            // --- ⬇️ (수정) 집계 로직 변경 ⬇️ ---
             siteApplicants.forEach(a => {
                 totals.applications++; 
                 
-                if (a.status === '중복') totals.duplicates++;
-                if (a.status === '거절') totals.reject++;
-                if (a.status === '취소') totals.cancel++;
-                if (a.status === '불합격') totals.fails++;
-                if (a.status === '제외') totals.exclude++; // '제외' 카운트
-                
-                if (['컨택', '면접', '합격', '입사'].includes(a.status)) totals.contacts++;
-                if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++;
-                if (['합격', '입사'].includes(a.status)) totals.offers++;
-                if (a.status === '입사') totals.hires++;
+                switch (a.status) {
+                    case '입사':
+                        totals.hires++;
+                        totals.offers++;
+                        totals.interviews++;
+                        totals.contacts++;
+                        break;
+                    case '합격':
+                        totals.offers++;
+                        totals.interviews++;
+                        totals.contacts++;
+                        break;
+                    case '면접':
+                        totals.interviews++;
+                        totals.contacts++;
+                        break;
+                    case '컨택':
+                        totals.contacts++;
+                        break;
+                    case '불합격':
+                        totals.fails++;
+                        totals.interviews++;
+                        totals.contacts++;
+                        break;
+                    case '취소':
+                        totals.cancel++;
+                        totals.interviews++;
+                        totals.contacts++;
+                        break;
+                    case '거절':
+                        totals.reject++;
+                        totals.contacts++;
+                        break;
+                    case '중복':
+                        totals.duplicates++;
+                        break;
+                    case '제외':
+                        totals.exclude++;
+                        break;
+                    default:
+                        break;
+                }
             });
             // --- ⬆️ (수정) ⬆️ ---
 
@@ -70,7 +102,6 @@ const SiteSummary = ({ jobs, dailyRecords, applicants, filter }) => {
                     <h4 className="font-semibold text-lg mb-3">
                         {data.site} - <span className="text-blue-600">{data.position}</span>
                     </h4>
-                    {/* --- ⬇️ (수정) '거절', '취소', '합격/불합격', '제외' 포맷 적용 (9개 항목, 3x3 grid) ⬇️ --- */}
                     <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
                         <div className="stat-item flex-col items-start"><span className="stat-label">조회수</span><span className="font-semibold">{data.views}</span></div>
                         <div className="stat-item flex-col items-start"><span className="stat-label">지원자</span><span className="font-semibold">{data.applications}</span></div>
@@ -90,7 +121,6 @@ const SiteSummary = ({ jobs, dailyRecords, applicants, filter }) => {
                         <div className="stat-item flex-col items-start"><span className="stat-label">제외</span><span className="font-semibold text-red-600">{data.exclude}</span></div>
                     </div>
                     <div className="flex justify-between items-center border-t pt-2 mt-2"><span className="text-gray-600 font-bold">입사:</span><span className="font-bold text-lg text-blue-600">{data.hires}명</span></div>
-                    {/* --- ⬆️ (수정) ⬆️ --- */}
                 </div>
             ))}
              {summaryData.length === 0 && (
