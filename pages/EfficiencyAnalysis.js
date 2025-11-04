@@ -13,7 +13,44 @@ const EfficiencyAnalysis = ({ jobs, applicants, siteSettings }) => {
                 const siteJobs = jobs.filter(j => j.site === site); const jobIds = siteJobs.map(j => j.id); const settings = siteSettings.find(s => s.site === site);
                 const siteApplicants = applicants.filter(a => jobIds.includes(a.appliedJobId));
                 const totals = { applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 };
-                siteApplicants.forEach(a => { totals.applications++; if (['컨택', '면접', '합격', '입사'].includes(a.status)) totals.contacts++; if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++; if (['합격', '입사'].includes(a.status)) totals.offers++; if (a.status === '입사') totals.hires++; });
+                
+                // --- ⬇️ (수정) 'site' 집계 로직 변경 ⬇️ ---
+                siteApplicants.forEach(a => { 
+                    totals.applications++;
+                    switch (a.status) {
+                        case '입사':
+                            totals.hires++;
+                            totals.offers++;
+                            totals.interviews++;
+                            totals.contacts++;
+                            break;
+                        case '합격':
+                            totals.offers++;
+                            totals.interviews++;
+                            totals.contacts++;
+                            break;
+                        case '면접':
+                            totals.interviews++;
+                            totals.contacts++;
+                            break;
+                        case '컨택':
+                            totals.contacts++;
+                            break;
+                        case '불합격':
+                            totals.interviews++;
+                            totals.contacts++;
+                            break;
+                        case '취소':
+                            totals.interviews++;
+                            totals.contacts++;
+                            break;
+                        case '거절':
+                            totals.contacts++;
+                            break;
+                    }
+                });
+                // --- ⬆️ (수정) ⬆️ ---
+
                 const cost = settings?.monthlyCost || 0; const costPerHire = totals.hires > 0 ? (cost / totals.hires).toFixed(0) : 0;
                 const rates = {
                     contactFromAppRate: totals.applications > 0 ? ((totals.contacts / totals.applications) * 100).toFixed(1) : 0,
@@ -27,14 +64,48 @@ const EfficiencyAnalysis = ({ jobs, applicants, siteSettings }) => {
         
         // === B. 모집유형별 분석 (신규 로직) ===
         else {
-            // --- ⬇️ (수정) '기타' 제거 ⬇️ ---
             const positions = ['영업', '강사']; 
-            // --- ⬆️ (수정) ⬆️ ---
             return positions.map(pos => {
                 const posJobs = jobs.filter(j => j.position === pos); const jobIds = posJobs.map(j => j.id);
                 const posApplicants = applicants.filter(a => jobIds.includes(a.appliedJobId));
                 const totals = { applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 };
-                posApplicants.forEach(a => { totals.applications++; if (['컨택', '면접', '합격', '입사'].includes(a.status)) totals.contacts++; if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++; if (['합격', '입사'].includes(a.status)) totals.offers++; if (a.status === '입사') totals.hires++; });
+                
+                // --- ⬇️ (수정) 'position' 집계 로직 변경 ⬇️ ---
+                posApplicants.forEach(a => { 
+                    totals.applications++;
+                    switch (a.status) {
+                        case '입사':
+                            totals.hires++;
+                            totals.offers++;
+                            totals.interviews++;
+                            totals.contacts++;
+                            break;
+                        case '합격':
+                            totals.offers++;
+                            totals.interviews++;
+                            totals.contacts++;
+                            break;
+                        case '면접':
+                            totals.interviews++;
+                            totals.contacts++;
+                            break;
+                        case '컨택':
+                            totals.contacts++;
+                            break;
+                        case '불합격':
+                            totals.interviews++;
+                            totals.contacts++;
+                            break;
+                        case '취소':
+                            totals.interviews++;
+                            totals.contacts++;
+                            break;
+                        case '거절':
+                            totals.contacts++;
+                            break;
+                    }
+                });
+                // --- ⬆️ (수정) ⬆️ ---
                 
                 const cost = 0; const costPerHire = 0; const efficiency = 0;
                 
