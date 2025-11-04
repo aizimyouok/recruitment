@@ -10,7 +10,39 @@ const DailyUpdate = ({ jobs, dailyRecords, loadData }) => {
     const [recordsForDate, setRecordsForDate] = useState({}); 
     const [isSaving, setIsSaving] = useState(false);
 
-    const activeJobs = useMemo(() => jobs.filter(j => j.status === '진행중'), [jobs]);
+    // --- ⬇️ (수정) 'activeJobs' 정렬 로직 추가 ⬇️ ---
+    const activeJobs = useMemo(() => {
+        const filtered = jobs.filter(j => j.status === '진행중');
+
+        // 정렬 순서 정의
+        const siteOrder = { '사람인': 1, '잡코리아': 2, '인크루트': 3 };
+        const positionOrder = { '영업': 1, '강사': 2 };
+
+        filtered.sort((a, b) => {
+            // 1. 사이트 순서로 정렬
+            const siteA = siteOrder[a.site] || 99;
+            const siteB = siteOrder[b.site] || 99;
+            if (siteA !== siteB) {
+                return siteA - siteB;
+            }
+
+            // 2. 모집유형 순서로 정렬
+            const posA = positionOrder[a.position] || 99;
+            const posB = positionOrder[b.position] || 99;
+            return posA - posB;
+        });
+
+        return filtered;
+    }, [jobs]);
+    // --- ⬆️ (수정) ⬆️ ---
+
+    // --- ⬇️ (수정) 사이트별 배경색 정의 ⬇️ ---
+    const siteBgColors = {
+        '사람인': 'bg-blue-50',
+        '잡코리아': 'bg-green-50',
+        '인크루트': 'bg-yellow-50'
+    };
+    // --- ⬆️ (수정) ⬆️ ---
 
     useEffect(() => {
         const recordsBefore = dailyRecords.filter(r => r.date < selectedDate);
@@ -25,9 +57,6 @@ const DailyUpdate = ({ jobs, dailyRecords, loadData }) => {
             const prevTotalViews = jobRecordsBefore.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
             newPrevViews[job.id] = prevTotalViews;
             const increaseOnDate = jobRecordsOn.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
-            // newDailyIncreases[job.id] = increaseOnDate; 
-            // useEffect에서는 viewInputs를 '' (빈 문자열)로 초기화해야 자동 계산 로직이 매끄럽게 동작합니다.
-            // 만약 저장된 값이 0이라면, 빈칸 대신 0이 표시됩니다.
             newDailyIncreases[job.id] = increaseOnDate === 0 ? 0 : (increaseOnDate || '');
             newRecordsForDate[job.id] = jobRecordsOn.map(r => r.id);
         }
@@ -37,14 +66,11 @@ const DailyUpdate = ({ jobs, dailyRecords, loadData }) => {
 
     }, [selectedDate, dailyRecords, activeJobs]);
 
-    // --- ⬇️ (수정) '일일 증가분' 입력 핸들러 ⬇️ ---
     const handleDailyChange = (jobId, dailyValue) => {
         const dailyIncrease = dailyValue === '' ? '' : (parseInt(dailyValue) || 0);
         setViewInputs(prev => ({ ...prev, [jobId]: dailyIncrease })); 
     };
-    // --- ⬆️ (수정) ⬆️ ---
 
-    // --- ⬇️ (수정) '총 누적' 입력 핸들러 추가 ⬇️ ---
     const handleTotalChange = (jobId, totalValue) => {
         const prevTotal = previousViews[jobId] || 0;
         let newDailyIncrease;
@@ -57,7 +83,6 @@ const DailyUpdate = ({ jobs, dailyRecords, loadData }) => {
         }
         setViewInputs(prev => ({ ...prev, [jobId]: newDailyIncrease }));
     };
-    // --- ⬆️ (수정) ⬆️ ---
 
 
     const handleSubmit = async () => {
@@ -68,10 +93,9 @@ const DailyUpdate = ({ jobs, dailyRecords, loadData }) => {
                 const recordsToDelete = recordsForDate[jobId] || [];
                 recordsToDelete.forEach(docId => batch.delete(db.collection('dailyRecords').doc(docId)));
                 
-                // dailyIncreaseInput이 ''(빈 문자열)이면 0으로, 아니면 해당 숫자로 저장
                 const increase = parseInt(dailyIncreaseInput) || 0; 
                 
-                if (increase !== 0 || recordsToDelete.length > 0) { // 0을 저장하거나, 기존 값을 삭제해야 하는 경우
+                if (increase !== 0 || recordsToDelete.length > 0) { 
                     const docRef = db.collection('dailyRecords').doc();
                     batch.set(docRef, { 
                         jobId, 
@@ -124,29 +148,29 @@ const DailyUpdate = ({ jobs, dailyRecords, loadData }) => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                 {activeJobs.map(job => {
-                    // --- ⬇️ (수정) 입력값/표시값 계산 로직 ⬇️ ---
                     const prevTotal = previousViews[job.id] || 0;
-                    // dailyIncrease는 '', 0, 10 등 숫자거나 빈 문자열일 수 있습니다.
                     const dailyIncrease = viewInputs[job.id] ?? ''; 
                     
                     let displayTotal;
                     if (dailyIncrease === '') {
-                        // 일일 증가분이 비어있으면, 총 누적도 비어있는 것처럼 표시
                         displayTotal = '';
                     } else {
-                        // 일일 증가분이 숫자(0 포함)이면, 총 누적 계산
                         displayTotal = prevTotal + (parseInt(dailyIncrease) || 0);
                     }
+                    
+                    // --- ⬇️ (수정) 동적 배경색 할당 ⬇️ ---
+                    const bgColor = siteBgColors[job.site] || 'bg-white';
                     // --- ⬆️ (수정) ⬆️ ---
 
                     return (
-                        <div key={job.id} className="bg-white rounded-xl shadow-lg p-6">
+                        // --- ⬇️ (수정) className에 bgColor 적용 ⬇️ ---
+                        <div key={job.id} className={`${bgColor} rounded-xl shadow-lg p-6`}>
+                        {/* --- ⬆️ (수정) ⬆️ ---
                             <div className="mb-4">
                                 <h3 className="text-lg font-semibold text-gray-800">{job.title}</h3>
                                 <p className="text-sm text-gray-600">{job.site} | 모집유형: {job.position}</p>
                             </div>
                             
-                            {/* --- ⬇️ (수정) 입력 UI 변경 ⬇️ --- */}
                             <div className="flex flex-wrap items-end gap-4">
                                 <div>
                                     <label className="label-style mb-1">일일 조회수 (증가분)</label>
@@ -168,14 +192,13 @@ const DailyUpdate = ({ jobs, dailyRecords, loadData }) => {
                                         value={displayTotal} 
                                         onChange={(e) => handleTotalChange(job.id, e.target.value)} 
                                         className="w-full md:w-40" 
-                                        placeholder={prevTotal.toString()} // 기본값으로 어제 누적 표시
+                                        placeholder={prevTotal.toString()} 
                                     />
                                 </div>
                             </div>
                             <p className="text-xs text-gray-500 mt-2">
                                 (어제까지 누적: {prevTotal})
                             </p>
-                            {/* --- ⬆️ (수정) ⬆️ --- */}
                         </div>
                     );
                 })}
