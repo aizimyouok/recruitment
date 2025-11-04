@@ -306,12 +306,10 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
         });
     }, [jobs, applicants, dateRange, dateRangeType, siteFilter, selectedSites]);
 
-    // --- ⬇️ (수정) 모집유형별 배경색 정의 ⬇️ ---
     const positionBgColors = {
         '영업': 'bg-red-50',
         '강사': 'bg-blue-50'
     };
-    // --- ⬆️ (수정) ⬆️ ---
 
     return (
         <div className="p-4 md:p-8">
@@ -399,6 +397,7 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
             {widgetSettings.conversion && (
                 <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
                     <h3 className="text-xl font-semibold mb-4">전환율 분석</h3>
+                    {/* --- ⬇️ (수정) '불합격', '제외' 단계 제거 ⬇️ --- */}
                     <div className="flex items-center justify-around flex-wrap gap-4">
                         <ConversionStep label="조회" value={stats.views} /> <Icon name="chevron-right" className="text-gray-400" />
                         <ConversionStep label="지원" value={stats.applications} /> <Icon name="chevron-right" className="text-gray-400" />
@@ -407,10 +406,9 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                         <ConversionStep label="컨택" value={stats.contacts} /> <Icon name="chevron-right" className="text-gray-400" />
                         <ConversionStep label="면접" value={stats.interviews} /> <Icon name="chevron-right" className="text-gray-400" />
                         <ConversionStep label="합격" value={stats.offers} /> <Icon name="chevron-right" className="text-gray-400" />
-                        <ConversionStep label="불합격" value={stats.fails} /> <Icon name="chevron-right" className="text-gray-400" />
-                        <ConversionStep label="제외" value={stats.exclude} /> <Icon name="chevron-right" className="text-gray-400" />
                         <ConversionStep label="입사" value={stats.hires} />
                     </div>
+                    {/* --- ⬆️ (수정) ⬆️ --- */}
                     <div className="mt-6 text-center">
                         <p className="text-gray-600">총 전환율 (지원자 → 입사자)</p>
                         <p className="text-4xl font-bold text-blue-600">{stats.conversionRate}%</p>
@@ -429,7 +427,6 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                             </button>
                         )}
                     </div>
-                    {/* SiteSummary.js는 SiteSummary.js 파일에서 수정됩니다. */}
                     <SiteSummary 
                         jobs={jobs} 
                         dailyRecords={dailyRecords} 
@@ -462,7 +459,6 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                     (기준: {selectedSites.length === 3 ? '전체 사이트' : selectedSites.join(', ')} | {dateRangeType === 'all' ? '전체 기간' : `${dateRange.start} ~ ${dateRange.end}`})
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* --- ⬇️ (수정) 동적 배경색 적용 ⬇️ --- */}
                     {positionSummaryData.map(data => {
                         const bgColor = positionBgColors[data.position] || 'border-gray-200';
                         return (
@@ -491,7 +487,6 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                             </div>
                         );
                     })}
-                    {/* --- ⬆️ (수정) ⬆️ --- */}
                 </div>
             </div>
 
