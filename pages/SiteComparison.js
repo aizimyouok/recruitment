@@ -42,7 +42,6 @@ const SiteComparison = ({ jobs, applicants, dailyRecords }) => {
                 exclude: 0 
             };
             
-            // --- ⬇️ (수정) 집계 로직 변경 ⬇️ ---
             siteApplicants.forEach(a => { 
                 totals.applications++; 
 
@@ -71,12 +70,12 @@ const SiteComparison = ({ jobs, applicants, dailyRecords }) => {
                         totals.contacts++;
                         break;
                     case '취소':
-                        totals.rejectCancel++; // '거절/취소' 합산 필드에 추가
+                        totals.rejectCancel++; 
                         totals.interviews++;
                         totals.contacts++;
                         break;
                     case '거절':
-                        totals.rejectCancel++; // '거절/취소' 합산 필드에 추가
+                        totals.rejectCancel++; 
                         totals.contacts++;
                         break;
                     case '중복':
@@ -89,7 +88,6 @@ const SiteComparison = ({ jobs, applicants, dailyRecords }) => {
                         break;
                 }
             });
-            // --- ⬆️ (수정) ⬆️ ---
             
             totals.conversionRate = totals.applications > 0 ? ((totals.hires / totals.applications) * 100).toFixed(1) : 0;
             return totals;
@@ -112,34 +110,47 @@ const SiteComparison = ({ jobs, applicants, dailyRecords }) => {
         ]
     };
 
+    // --- ⬇️ (수정) 사이트별 배경색 정의 ⬇️ ---
+    const siteBgColors = {
+        '사람인': 'bg-blue-50',
+        '잡코리아': 'bg-green-50',
+        '인크루트': 'bg-yellow-50'
+    };
+    // --- ⬆️ (수정) ⬆️ ---
+
     return (
         <div className="p-4 md:p-8">
             <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-8">사이트/유형 비교</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                {siteData.map(data => (
-                    <div key={data.key} className="bg-white rounded-xl shadow-lg p-6">
-                        <h3 className="text-xl font-bold text-center mb-6">
-                            {data.site} - <span className="text-blue-600">{data.position}</span>
-                        </h3>
-                        <div className="space-y-3">
-                            <div className="stat-item"><span className="stat-label">조회수</span><span className="stat-value">{data.views}</span></div>
-                            <div className="stat-item"><span className="stat-label">지원자</span><span className="stat-value">{data.applications}</span></div>
-                            <div className="stat-item"><span className="stat-label">중복</span><span className="stat-value text-red-600">{data.duplicates}</span></div>
-                            <div className="stat-item"><span className="stat-label">거절/취소</span><span className="stat-value text-red-600">{data.rejectCancel}</span></div>
-                            <div className="stat-item"><span className="stat-label">제외</span><span className="stat-value text-red-600">{data.exclude}</span></div>
-                            <div className="stat-item"><span className="stat-label">컨택</span><span className="stat-value">{data.contacts}</span></div>
-                            <div className="stat-item"><span className="stat-label">면접</span><span className="stat-value">{data.interviews}</span></div>
-                            <div className="stat-item">
-                                <span className="stat-label">합격/불합격</span>
-                                <span className="font-semibold">
-                                    <span className="text-green-600">{data.offers}</span> / <span className="text-red-600">{data.fails}</span>
-                                </span>
+                {/* --- ⬇️ (수정) 동적 배경색 적용 ⬇️ --- */}
+                {siteData.map(data => {
+                    const bgColor = siteBgColors[data.site] || 'bg-white';
+                    return (
+                        <div key={data.key} className={`rounded-xl shadow-lg p-6 ${bgColor}`}>
+                            <h3 className="text-xl font-bold text-center mb-6">
+                                {data.site} - <span className="text-blue-600">{data.position}</span>
+                            </h3>
+                            <div className="space-y-3">
+                                <div className="stat-item"><span className="stat-label">조회수</span><span className="stat-value">{data.views}</span></div>
+                                <div className="stat-item"><span className="stat-label">지원자</span><span className="stat-value">{data.applications}</span></div>
+                                <div className="stat-item"><span className="stat-label">중복</span><span className="stat-value text-red-600">{data.duplicates}</span></div>
+                                <div className="stat-item"><span className="stat-label">거절/취소</span><span className="stat-value text-red-600">{data.rejectCancel}</span></div>
+                                <div className="stat-item"><span className="stat-label">제외</span><span className="stat-value text-red-600">{data.exclude}</span></div>
+                                <div className="stat-item"><span className="stat-label">컨택</span><span className="stat-value">{data.contacts}</span></div>
+                                <div className="stat-item"><span className="stat-label">면접</span><span className="stat-value">{data.interviews}</span></div>
+                                <div className="stat-item">
+                                    <span className="stat-label">합격/불합격</span>
+                                    <span className="font-semibold">
+                                        <span className="text-green-600">{data.offers}</span> / <span className="text-red-600">{data.fails}</span>
+                                    </span>
+                                </div>
+                                <div className="stat-item"><span className="stat-label">입사자</span><span className="stat-value text-blue-600">{data.hires}</span></div>
+                                <div className="flex justify-between items-center pt-2"><span className="text-gray-600 font-semibold">전환율</span><span className="text-2xl font-bold text-blue-600">{data.conversionRate}%</span></div>
                             </div>
-                            <div className="stat-item"><span className="stat-label">입사자</span><span className="stat-value text-blue-600">{data.hires}</span></div>
-                            <div className="flex justify-between items-center pt-2"><span className="text-gray-600 font-semibold">전환율</span><span className="text-2xl font-bold text-blue-600">{data.conversionRate}%</span></div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
+                {/* --- ⬆️ (수정) ⬆️ --- */}
             </div>
             {siteData.length === 0 && (
                 <div className="text-center py-12 text-gray-500">
