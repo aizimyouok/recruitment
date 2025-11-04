@@ -100,20 +100,54 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
         const activeJobs = filteredData.filteredJobs.filter(j => j.status === '진행중');
         const totalViews = filteredData.filteredRecords.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
         
-        // --- ⬇️ (수정) 'duplicates', 'rejectCancel', 'fails', 'exclude' 항목 추가 ⬇️ ---
         const totals = { applications: 0, duplicates: 0, rejectCancel: 0, contacts: 0, interviews: 0, offers: 0, fails: 0, hires: 0, exclude: 0 };
         
+        // --- ⬇️ (수정) 1. stats 집계 로직 변경 ⬇️ ---
         filteredData.filteredApplicants.forEach(a => {
             totals.applications++;
-            if (a.status === '중복') totals.duplicates++;
-            if (a.status === '거절' || a.status === '취소') totals.rejectCancel++;
-            if (a.status === '불합격') totals.fails++;
-            if (a.status === '제외') totals.exclude++; // '제외' 카운트
 
-            if (['컨택', '면접', '합격', '입사'].includes(a.status)) totals.contacts++;
-            if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++;
-            if (['합격', '입사'].includes(a.status)) totals.offers++; // '합격'은 '합격'과 '입사'를 모두 포함
-            if (a.status === '입사') totals.hires++;
+            switch (a.status) {
+                case '입사':
+                    totals.hires++;
+                    totals.offers++;
+                    totals.interviews++;
+                    totals.contacts++;
+                    break;
+                case '합격':
+                    totals.offers++;
+                    totals.interviews++;
+                    totals.contacts++;
+                    break;
+                case '면접':
+                    totals.interviews++;
+                    totals.contacts++;
+                    break;
+                case '컨택':
+                    totals.contacts++;
+                    break;
+                case '불합격':
+                    totals.fails++;
+                    totals.interviews++;
+                    totals.contacts++;
+                    break;
+                case '취소':
+                    totals.rejectCancel++;
+                    totals.interviews++;
+                    totals.contacts++;
+                    break;
+                case '거절':
+                    totals.rejectCancel++;
+                    totals.contacts++;
+                    break;
+                case '중복':
+                    totals.duplicates++;
+                    break;
+                case '제외':
+                    totals.exclude++;
+                    break;
+                default:
+                    break;
+            }
         });
         // --- ⬆️ (수정) ⬆️ ---
 
@@ -143,7 +177,6 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
     }, [filteredData, selectedSites, selectedPositions, dateRange, goals]); 
 
     const radarChartData = useMemo(() => {
-        // --- ⬇️ (수정) 레이더 차트 레이블 및 로직 수정 ('제외'는 레이더차트에서 제외) ⬇️ ---
         const sites = ['사람인', '잡코리아', '인크루트'];
         const labels = ['조회수', '지원자', '중복', '거절/취소', '컨택', '면접', '합격', '불합격', '입사'];
         const datasets = sites.map((site, index) => {
@@ -156,17 +189,51 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
             const applications = siteApplicants.length;
             let duplicates = 0, rejectCancel = 0, contacts = 0, interviews = 0, offers = 0, fails = 0, hires = 0;
             
+            // --- ⬇️ (수정) 2. radarChartData 집계 로직 변경 ⬇️ ---
             siteApplicants.forEach(a => {
-                if (a.status === '중복') duplicates++;
-                if (a.status === '거절' || a.status === '취소') rejectCancel++;
-                if (a.status === '불합격') fails++;
-                if (['컨택', '면접', '합격', '입사'].includes(a.status)) contacts++;
-                if (['면접', '합격', '입사'].includes(a.status)) interviews++;
-                if (['합격', '입사'].includes(a.status)) offers++;
-                if (a.status === '입사') hires++;
+                // 'applications'는 별도 계산됨
+                switch (a.status) {
+                    case '입사':
+                        hires++;
+                        offers++;
+                        interviews++;
+                        contacts++;
+                        break;
+                    case '합격':
+                        offers++;
+                        interviews++;
+                        contacts++;
+                        break;
+                    case '면접':
+                        interviews++;
+                        contacts++;
+                        break;
+                    case '컨택':
+                        contacts++;
+                        break;
+                    case '불합격':
+                        fails++;
+                        interviews++;
+                        contacts++;
+                        break;
+                    case '취소':
+                        rejectCancel++;
+                        interviews++;
+                        contacts++;
+                        break;
+                    case '거절':
+                        rejectCancel++;
+                        contacts++;
+                        break;
+                    case '중복':
+                        duplicates++;
+                        break;
+                    // '제외'는 레이더 차트에서 제외
+                }
             });
-            const data = [views, applications, duplicates, rejectCancel, contacts, interviews, offers, fails, hires];
             // --- ⬆️ (수정) ⬆️ ---
+
+            const data = [views, applications, duplicates, rejectCancel, contacts, interviews, offers, fails, hires];
             
             const colors = ['rgba(59, 130, 246, 0.2)', 'rgba(16, 185, 129, 0.2)', 'rgba(245, 158, 11, 0.2)'];
             const borderColors = ['rgb(59, 130, 246)', 'rgb(16, 185, 129)', 'rgb(245, 158, 11)'];
@@ -193,20 +260,54 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
             const jobIds = posJobs.map(j => j.id);
             const posApplicants = dateFilteredApplicants.filter(a => jobIds.includes(a.appliedJobId));
             
-            // --- ⬇️ (수정) 'rejectCancel'을 'reject', 'cancel', 'exclude'로 분리 ⬇️ ---
             const totals = { applications: 0, duplicates: 0, reject: 0, cancel: 0, contacts: 0, interviews: 0, offers: 0, fails: 0, hires: 0, exclude: 0 };
+            
+            // --- ⬇️ (수정) 3. positionSummaryData 집계 로직 변경 ⬇️ ---
             posApplicants.forEach(a => {
                 totals.applications++;
-                if (a.status === '중복') totals.duplicates++;
-                if (a.status === '거절') totals.reject++;
-                if (a.status === '취소') totals.cancel++;
-                if (a.status === '불합격') totals.fails++;
-                if (a.status === '제외') totals.exclude++; // '제외' 카운트
-
-                if (['컨택', '면접', '합격', '입사'].includes(a.status)) totals.contacts++;
-                if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++;
-                if (['합격', '입사'].includes(a.status)) totals.offers++;
-                if (a.status === '입사') totals.hires++;
+                
+                switch (a.status) {
+                    case '입사':
+                        totals.hires++;
+                        totals.offers++;
+                        totals.interviews++;
+                        totals.contacts++;
+                        break;
+                    case '합격':
+                        totals.offers++;
+                        totals.interviews++;
+                        totals.contacts++;
+                        break;
+                    case '면접':
+                        totals.interviews++;
+                        totals.contacts++;
+                        break;
+                    case '컨택':
+                        totals.contacts++;
+                        break;
+                    case '불합격':
+                        totals.fails++;
+                        totals.interviews++;
+                        totals.contacts++;
+                        break;
+                    case '취소':
+                        totals.cancel++;
+                        totals.interviews++;
+                        totals.contacts++;
+                        break;
+                    case '거절':
+                        totals.reject++;
+                        totals.contacts++;
+                        break;
+                    case '중복':
+                        totals.duplicates++;
+                        break;
+                    case '제외':
+                        totals.exclude++;
+                        break;
+                    default:
+                        break;
+                }
             });
             // --- ⬆️ (수정) ⬆️ ---
             return { position: pos, ...totals };
@@ -300,7 +401,6 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
             {widgetSettings.conversion && (
                 <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
                     <h3 className="text-xl font-semibold mb-4">전환율 분석</h3>
-                    {/* --- ⬇️ (수정) '중복', '거절/취소', '불합격', '제외' 단계 추가 ⬇️ --- */}
                     <div className="flex items-center justify-around flex-wrap gap-4">
                         <ConversionStep label="조회" value={stats.views} /> <Icon name="chevron-right" className="text-gray-400" />
                         <ConversionStep label="지원" value={stats.applications} /> <Icon name="chevron-right" className="text-gray-400" />
@@ -313,7 +413,6 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                         <ConversionStep label="제외" value={stats.exclude} /> <Icon name="chevron-right" className="text-gray-400" />
                         <ConversionStep label="입사" value={stats.hires} />
                     </div>
-                    {/* --- ⬆️ (수정) ⬆️ --- */}
                     <div className="mt-6 text-center">
                         <p className="text-gray-600">총 전환율 (지원자 → 입사자)</p>
                         <p className="text-4xl font-bold text-blue-600">{stats.conversionRate}%</p>
@@ -332,7 +431,7 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                             </button>
                         )}
                     </div>
-                    {/* SiteSummary.js는 1단계에서 이미 '거절/취소'가 적용되었습니다. */}
+                    {/* SiteSummary.js는 이미 수정됨 */}
                     <SiteSummary 
                         jobs={jobs} 
                         dailyRecords={dailyRecords} 
@@ -368,7 +467,6 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                     {positionSummaryData.map(data => (
                         <div key={data.position} className="border border-gray-200 rounded-lg p-4">
                             <h4 className="font-semibold text-lg mb-3">{data.position}</h4>
-                            {/* --- ⬇️ (수정) '거절/취소', '제외' 항목 분리 ⬇️ --- */}
                             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                                 <div className="stat-item"><span className="stat-label">지원자:</span><span className="font-semibold">{data.applications}</span></div>
                                 <div className="stat-item"><span className="stat-label">중복:</span><span className="font-semibold text-red-600">{data.duplicates}</span></div>
@@ -389,7 +487,6 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                                 <div className="stat-item"><span className="stat-label">제외:</span><span className="font-semibold text-red-600">{data.exclude}</span></div>
                                 <div className="flex justify-between col-span-2 border-t pt-2 mt-1"><span className="text-gray-600 font-bold">입사:</span><span className="font-bold text-lg text-blue-600">{data.hires}명</span></div>
                             </div>
-                            {/* --- ⬆️ (수정) ⬆️ --- */}
                         </div>
                     ))}
                 </div>
