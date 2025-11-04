@@ -7,14 +7,48 @@ const JobDetailModal = ({ job, applicants, onClose }) => {
         const jobApplicants = applicants.filter(a => a.appliedJobId === job.id);
         const totals = { applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 };
         const trend = {};
+        
+        // --- ⬇️ (수정) 집계 로직 변경 ⬇️ ---
         jobApplicants.forEach(a => {
             totals.applications++;
-            if (['컨택', '면접', '합격', '입사'].includes(a.status)) totals.contacts++;
-            if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++;
-            if (['합격', '입사'].includes(a.status)) totals.offers++;
-            if (a.status === '입사') totals.hires++;
+            
+            switch (a.status) {
+                case '입사':
+                    totals.hires++;
+                    totals.offers++;
+                    totals.interviews++;
+                    totals.contacts++;
+                    break;
+                case '합격':
+                    totals.offers++;
+                    totals.interviews++;
+                    totals.contacts++;
+                    break;
+                case '면접':
+                    totals.interviews++;
+                    totals.contacts++;
+                    break;
+                case '컨택':
+                    totals.contacts++;
+                    break;
+                case '불합격':
+                    totals.interviews++;
+                    totals.contacts++;
+                    break;
+                case '취소':
+                    totals.interviews++;
+                    totals.contacts++;
+                    break;
+                case '거절':
+                    totals.contacts++;
+                    break;
+                // '중복', '제외', '지원'은 긍정 퍼널(컨택, 면접 등)에 카운트되지 않음
+            }
+
             trend[a.appliedDate] = (trend[a.appliedDate] || 0) + 1;
         });
+        // --- ⬆️ (수정) ⬆️ ---
+
         const conversionRate = totals.applications > 0 ? ((totals.hires / totals.applications) * 100).toFixed(1) : 0;
         const sortedTrend = Object.entries(trend).sort((a, b) => a[0].localeCompare(b[0]));
         return { ...totals, conversionRate, trendData: sortedTrend, applicantList: jobApplicants };
@@ -31,9 +65,7 @@ const JobDetailModal = ({ job, applicants, onClose }) => {
                 <div className="flex justify-between items-center mb-6">
                     <div>
                         <h3 className="text-2xl font-bold text-gray-800">{job.title}</h3>
-                        {/* --- ⬇️ (수정) '모집유형' 라벨 추가 ⬇️ --- */}
                         <p className="text-gray-600">{job.site} | 모집유형: <span className="font-semibold">{job.position}</span></p>
-                        {/* --- ⬆️ (수정) ⬆️ --- */}
                     </div>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><Icon name="x" size={24} /></button>
                 </div>
