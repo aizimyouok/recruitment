@@ -102,7 +102,6 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
         
         const totals = { applications: 0, duplicates: 0, rejectCancel: 0, contacts: 0, interviews: 0, offers: 0, fails: 0, hires: 0, exclude: 0 };
         
-        // --- ⬇️ (수정) 1. stats 집계 로직 변경 ⬇️ ---
         filteredData.filteredApplicants.forEach(a => {
             totals.applications++;
 
@@ -149,7 +148,6 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                     break;
             }
         });
-        // --- ⬆️ (수정) ⬆️ ---
 
         const conversionRate = totals.applications > 0 ? ((totals.hires / totals.applications) * 100).toFixed(1) : 0;
 
@@ -189,9 +187,7 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
             const applications = siteApplicants.length;
             let duplicates = 0, rejectCancel = 0, contacts = 0, interviews = 0, offers = 0, fails = 0, hires = 0;
             
-            // --- ⬇️ (수정) 2. radarChartData 집계 로직 변경 ⬇️ ---
             siteApplicants.forEach(a => {
-                // 'applications'는 별도 계산됨
                 switch (a.status) {
                     case '입사':
                         hires++;
@@ -228,10 +224,8 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                     case '중복':
                         duplicates++;
                         break;
-                    // '제외'는 레이더 차트에서 제외
                 }
             });
-            // --- ⬆️ (수정) ⬆️ ---
 
             const data = [views, applications, duplicates, rejectCancel, contacts, interviews, offers, fails, hires];
             
@@ -262,7 +256,6 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
             
             const totals = { applications: 0, duplicates: 0, reject: 0, cancel: 0, contacts: 0, interviews: 0, offers: 0, fails: 0, hires: 0, exclude: 0 };
             
-            // --- ⬇️ (수정) 3. positionSummaryData 집계 로직 변경 ⬇️ ---
             posApplicants.forEach(a => {
                 totals.applications++;
                 
@@ -309,11 +302,16 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                         break;
                 }
             });
-            // --- ⬆️ (수정) ⬆️ ---
             return { position: pos, ...totals };
         });
     }, [jobs, applicants, dateRange, dateRangeType, siteFilter, selectedSites]);
 
+    // --- ⬇️ (수정) 모집유형별 배경색 정의 ⬇️ ---
+    const positionBgColors = {
+        '영업': 'bg-red-50',
+        '강사': 'bg-blue-50'
+    };
+    // --- ⬆️ (수정) ⬆️ ---
 
     return (
         <div className="p-4 md:p-8">
@@ -431,7 +429,7 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                             </button>
                         )}
                     </div>
-                    {/* SiteSummary.js는 이미 수정됨 */}
+                    {/* SiteSummary.js는 SiteSummary.js 파일에서 수정됩니다. */}
                     <SiteSummary 
                         jobs={jobs} 
                         dailyRecords={dailyRecords} 
@@ -464,31 +462,36 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                     (기준: {selectedSites.length === 3 ? '전체 사이트' : selectedSites.join(', ')} | {dateRangeType === 'all' ? '전체 기간' : `${dateRange.start} ~ ${dateRange.end}`})
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {positionSummaryData.map(data => (
-                        <div key={data.position} className="border border-gray-200 rounded-lg p-4">
-                            <h4 className="font-semibold text-lg mb-3">{data.position}</h4>
-                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                                <div className="stat-item"><span className="stat-label">지원자:</span><span className="font-semibold">{data.applications}</span></div>
-                                <div className="stat-item"><span className="stat-label">중복:</span><span className="font-semibold text-red-600">{data.duplicates}</span></div>
-                                <div className="stat-item">
-                                    <span className="stat-label">거절/취소:</span>
-                                    <span className="font-semibold">
-                                        <span className="text-red-600">{data.reject}</span> / <span className="text-red-600">{data.cancel}</span>
-                                    </span>
+                    {/* --- ⬇️ (수정) 동적 배경색 적용 ⬇️ --- */}
+                    {positionSummaryData.map(data => {
+                        const bgColor = positionBgColors[data.position] || 'border-gray-200';
+                        return (
+                            <div key={data.position} className={`border rounded-lg p-4 ${bgColor}`}>
+                                <h4 className="font-semibold text-lg mb-3">{data.position}</h4>
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                    <div className="stat-item"><span className="stat-label">지원자:</span><span className="font-semibold">{data.applications}</span></div>
+                                    <div className="stat-item"><span className="stat-label">중복:</span><span className="font-semibold text-red-600">{data.duplicates}</span></div>
+                                    <div className="stat-item">
+                                        <span className="stat-label">거절/취소:</span>
+                                        <span className="font-semibold">
+                                            <span className="text-red-600">{data.reject}</span> / <span className="text-red-600">{data.cancel}</span>
+                                        </span>
+                                    </div>
+                                    <div className="stat-item"><span className="stat-label">컨택:</span><span className="font-semibold">{data.contacts}</span></div>
+                                    <div className="stat-item"><span className="stat-label">면접:</span><span className="font-semibold">{data.interviews}</span></div>
+                                    <div className="stat-item">
+                                        <span className="stat-label">합격/불합격:</span>
+                                        <span className="font-semibold">
+                                            <span className="text-green-600">{data.offers}</span> / <span className="text-red-600">{data.fails}</span>
+                                        </span>
+                                    </div>
+                                    <div className="stat-item"><span className="stat-label">제외:</span><span className="font-semibold text-red-600">{data.exclude}</span></div>
+                                    <div className="flex justify-between col-span-2 border-t pt-2 mt-1"><span className="text-gray-600 font-bold">입사:</span><span className="font-bold text-lg text-blue-600">{data.hires}명</span></div>
                                 </div>
-                                <div className="stat-item"><span className="stat-label">컨택:</span><span className="font-semibold">{data.contacts}</span></div>
-                                <div className="stat-item"><span className="stat-label">면접:</span><span className="font-semibold">{data.interviews}</span></div>
-                                <div className="stat-item">
-                                    <span className="stat-label">합격/불합격:</span>
-                                    <span className="font-semibold">
-                                        <span className="text-green-600">{data.offers}</span> / <span className="text-red-600">{data.fails}</span>
-                                    </span>
-                                </div>
-                                <div className="stat-item"><span className="stat-label">제외:</span><span className="font-semibold text-red-600">{data.exclude}</span></div>
-                                <div className="flex justify-between col-span-2 border-t pt-2 mt-1"><span className="text-gray-600 font-bold">입사:</span><span className="font-bold text-lg text-blue-600">{data.hires}명</span></div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
+                    {/* --- ⬆️ (수정) ⬆️ --- */}
                 </div>
             </div>
 
