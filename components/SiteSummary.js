@@ -26,7 +26,7 @@ const SiteSummary = ({ jobs, dailyRecords, applicants, filter }) => {
             const totalViews = siteRecords.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
             const siteApplicants = applicants.filter(a => jobIds.includes(a.appliedJobId));
             
-            // --- ⬇️ (수정) 'rejectCancel'을 'reject'와 'cancel'로 분리, 'fails' 추가 ⬇️ ---
+            // --- ⬇️ (수정) 'rejectCancel'을 'reject'와 'cancel'로 분리, 'fails', 'exclude' 추가 ⬇️ ---
             const totals = { 
                 jobs: siteJobs.length, 
                 views: totalViews, 
@@ -38,7 +38,8 @@ const SiteSummary = ({ jobs, dailyRecords, applicants, filter }) => {
                 interviews: 0, 
                 offers: 0, 
                 fails: 0, // '불합격'
-                hires: 0 
+                hires: 0,
+                exclude: 0 // '제외'
             };
             
             siteApplicants.forEach(a => {
@@ -48,6 +49,7 @@ const SiteSummary = ({ jobs, dailyRecords, applicants, filter }) => {
                 if (a.status === '거절') totals.reject++;
                 if (a.status === '취소') totals.cancel++;
                 if (a.status === '불합격') totals.fails++;
+                if (a.status === '제외') totals.exclude++; // '제외' 카운트
                 
                 if (['컨택', '면접', '합격', '입사'].includes(a.status)) totals.contacts++;
                 if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++;
@@ -68,7 +70,7 @@ const SiteSummary = ({ jobs, dailyRecords, applicants, filter }) => {
                     <h4 className="font-semibold text-lg mb-3">
                         {data.site} - <span className="text-blue-600">{data.position}</span>
                     </h4>
-                    {/* --- ⬇️ (수정) '거절', '취소', '합격/불합격' 포맷 적용 (9개 항목, 3x3 grid) ⬇️ --- */}
+                    {/* --- ⬇️ (수정) '거절', '취소', '합격/불합격', '제외' 포맷 적용 (9개 항목, 3x3 grid) ⬇️ --- */}
                     <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
                         <div className="stat-item flex-col items-start"><span className="stat-label">조회수</span><span className="font-semibold">{data.views}</span></div>
                         <div className="stat-item flex-col items-start"><span className="stat-label">지원자</span><span className="font-semibold">{data.applications}</span></div>
@@ -85,6 +87,7 @@ const SiteSummary = ({ jobs, dailyRecords, applicants, filter }) => {
 
                         <div className="stat-item flex-col items-start"><span className="stat-label">거절</span><span className="font-semibold text-red-600">{data.reject}</span></div>
                         <div className="stat-item flex-col items-start"><span className="stat-label">취소</span><span className="font-semibold text-red-600">{data.cancel}</span></div>
+                        <div className="stat-item flex-col items-start"><span className="stat-label">제외</span><span className="font-semibold text-red-600">{data.exclude}</span></div>
                     </div>
                     <div className="flex justify-between items-center border-t pt-2 mt-2"><span className="text-gray-600 font-bold">입사:</span><span className="font-bold text-lg text-blue-600">{data.hires}명</span></div>
                     {/* --- ⬆️ (수정) ⬆️ --- */}
