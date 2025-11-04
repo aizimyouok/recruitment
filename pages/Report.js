@@ -12,7 +12,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
         jobFilter: 'all'
     });
 
-    // --- ⬇️ (수정) 모든 항목의 기본값을 'true'로 변경 ⬇️ ---
     // 2. 리포트 섹션 선택 상태
     const [sections, setSections] = useState({
         // 채용 퍼널
@@ -22,7 +21,7 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
         roi: true,
         // 사이트 트렌드
         trends_lineChart: true, // 일별 추이 (라인)
-        trends_pieChart: true,  // 지원자 비율 (파이) -> 막대그래프로 변경됨
+        trends_pieChart: true,  // 지원자 비율 (막대그래프)
         // 모집유형 분석
         position_pieChart: true, // 유형별 비율 (파이)
         position_summary: true, // 유형별 현황 (박스)
@@ -32,7 +31,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
         // 상세 데이터
         rawData: true
     });
-    // --- ⬆️ (수정) ⬆️ ---
     
     // 3. 상세 목록 컬럼 선택 상태
     const [columns, setColumns] = useState({
@@ -144,13 +142,45 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
         if (sections.funnel_summary || sections.funnel_rates) {
             const totalViews = filteredRecords.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
             const totals = { applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 };
+            
+            // --- ⬇️ (수정) 1. funnel 집계 로직 변경 ⬇️ ---
             filteredApplicants.forEach(a => {
                 totals.applications++;
-                if (['컨택', '면접', '합격', '입사'].includes(a.status)) totals.contacts++;
-                if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++;
-                if (['합격', '입사'].includes(a.status)) totals.offers++;
-                if (a.status === '입사') totals.hires++;
+                
+                switch (a.status) {
+                    case '입사':
+                        totals.hires++;
+                        totals.offers++;
+                        totals.interviews++;
+                        totals.contacts++;
+                        break;
+                    case '합격':
+                        totals.offers++;
+                        totals.interviews++;
+                        totals.contacts++;
+                        break;
+                    case '면접':
+                        totals.interviews++;
+                        totals.contacts++;
+                        break;
+                    case '컨택':
+                        totals.contacts++;
+                        break;
+                    case '불합격':
+                        totals.interviews++;
+                        totals.contacts++;
+                        break;
+                    case '취소':
+                        totals.interviews++;
+                        totals.contacts++;
+                        break;
+                    case '거절':
+                        totals.contacts++;
+                        break;
+                }
             });
+            // --- ⬆️ (수정) ⬆️ ---
+
             const rates = {
                 viewToApp: totalViews > 0 ? ((totals.applications / totalViews) * 100).toFixed(1) : 0,
                 appToContact: totals.applications > 0 ? ((totals.contacts / totals.applications) * 100).toFixed(1) : 0,
@@ -176,7 +206,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
         if (sections.trends_lineChart || sections.trends_pieChart) {
             const dateMap = {}; 
             
-            // --- ⬇️ (수정) 라인차트: '사이트-유형'별 '조회수'만 집계 ⬇️ ---
             if (sections.trends_lineChart) {
                 filteredRecords.forEach(r => {
                     const job = jobIdToJob[r.jobId];
@@ -188,12 +217,10 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                     dateMap[r.date][comboKey].views += r.viewsIncrease || 0;
                 });
             }
-            // --- ⬆️ (수정) ⬆️ ---
 
             const allDates = Object.keys(dateMap).sort();
             const lineChartDatasets = [];
             
-            // --- ⬇️ (수정) 라인차트: 데이터셋 생성 로직 변경 ⬇️ ---
             if(sections.trends_lineChart) {
                 const colors = {
                     '사람인-영업': 'rgb(59, 130, 246)',
@@ -221,9 +248,7 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                     });
                 });
             }
-            // --- ⬆️ (수정) ⬆️ ---
-
-            // --- ⬇️ (수정) 파이차트 -> 막대차트: '사이트-유형'별 지원자 집계 ⬇️ ---
+            
             const combinations = [];
             selectedSites.forEach(site => {
                 selectedPositions.forEach(pos => {
@@ -253,7 +278,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                 }]
             };
             newReportData.trends = { lineChartData: { labels: allDates, datasets: lineChartDatasets }, barChartData: barChartData };
-            // --- ⬆️ (수정) ⬆️ ---
         }
         
         // '모집유형별 분석' 섹션 데이터
@@ -263,16 +287,46 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                 posStats[pos] = { applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 };
             });
             
+            // --- ⬇️ (수정) 2. positionAnalysis 집계 로직 변경 ⬇️ ---
             filteredApplicants.forEach(a => {
                 const pos = jobIdToJob[a.appliedJobId]?.position;
                 if (pos && posStats[pos]) {
                     posStats[pos].applications++;
-                    if (['컨택', '면접', '합격', '입사'].includes(a.status)) posStats[pos].contacts++;
-                    if (['면접', '합격', '입사'].includes(a.status)) posStats[pos].interviews++;
-                    if (['합격', '입사'].includes(a.status)) posStats[pos].offers++;
-                    if (a.status === '입사') posStats[pos].hires++;
+                    
+                    switch (a.status) {
+                        case '입사':
+                            posStats[pos].hires++;
+                            posStats[pos].offers++;
+                            posStats[pos].interviews++;
+                            posStats[pos].contacts++;
+                            break;
+                        case '합격':
+                            posStats[pos].offers++;
+                            posStats[pos].interviews++;
+                            posStats[pos].contacts++;
+                            break;
+                        case '면접':
+                            posStats[pos].interviews++;
+                            posStats[pos].contacts++;
+                            break;
+                        case '컨택':
+                            posStats[pos].contacts++;
+                            break;
+                        case '불합격':
+                            posStats[pos].interviews++;
+                            posStats[pos].contacts++;
+                            break;
+                        case '취소':
+                            posStats[pos].interviews++;
+                            posStats[pos].contacts++;
+                            break;
+                        case '거절':
+                            posStats[pos].contacts++;
+                            break;
+                    }
                 }
             });
+            // --- ⬆️ (수정) ⬆️ ---
 
             const posPieData = {
                 labels: Object.keys(posStats),
@@ -287,7 +341,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
         // (제안 4: 지원자 통계)
         if (sections.demographics_gender || sections.demographics_age) {
             const gender = { '남': 0, '여': 0 };
-            // --- ⬇️ (수정) 연령대 집계 기준 변경 ⬇️ ---
             const ageGroups = { 
                 '20 미만': 0, 
                 '20~29': 0, 
@@ -312,7 +365,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                 else if (age <= 55) { ageGroups['51~55']++; }
                 else { ageGroups['56 이상']++; }
             });
-            // --- ⬆️ (수정) ⬆️ ---
             newReportData.demographics = { gender, ageGroups };
         }
 
@@ -531,7 +583,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                         )}
 
                         {/* 섹션 3: 기간별 트렌드 */}
-                        {/* --- ⬇️ (수정) JSX 렌더링 수정 (제목 변경, pie -> bar) ⬇️ --- */}
                         {(sections.trends_lineChart || sections.trends_pieChart) && reportData.trends && (
                             <ReportSection title="사이트별 트렌드">
                                 {sections.trends_lineChart && (
@@ -564,7 +615,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                                 )}
                             </ReportSection>
                         )}
-                        {/* --- ⬆️ (수정) ⬆️ --- */}
                         
                         {/* '모집유형별 분석' 섹션 */}
                         {(sections.position_pieChart || sections.position_summary) && reportData.positionAnalysis && (
@@ -598,7 +648,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                         )}
 
                         {/* 섹션 4: 지원자 통계 */}
-                        {/* --- ⬇️ (수정) 연령대 집계 기준 변경에 따라 JSX 자동 반영 ⬇️ --- */}
                         {(sections.demographics_gender || sections.demographics_age) && reportData.demographics && (
                             <ReportSection title="지원자 통계">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -625,7 +674,6 @@ const Report = ({ jobs, dailyRecords, applicants, siteSettings }) => {
                                 </div>
                             </ReportSection>
                         )}
-                        {/* --- ⬆️ (수정) ⬆️ --- */}
 
                         {/* 섹션 5: 상세 데이터 */}
                         {sections.rawData && reportData.rawData && (
