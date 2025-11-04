@@ -4,6 +4,7 @@ const { useState, useMemo, useEffect } = React;
 
 const DailyUpdate = ({ jobs, dailyRecords, loadData }) => {
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    // viewInputs는 '일일 증가분(daily increase)'을 저장하는 상태입니다.
     const [viewInputs, setViewInputs] = useState({}); 
     const [previousViews, setPreviousViews] = useState({}); 
     const [recordsForDate, setRecordsForDate] = useState({}); 
@@ -24,7 +25,10 @@ const DailyUpdate = ({ jobs, dailyRecords, loadData }) => {
             const prevTotalViews = jobRecordsBefore.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
             newPrevViews[job.id] = prevTotalViews;
             const increaseOnDate = jobRecordsOn.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
-            newDailyIncreases[job.id] = increaseOnDate; 
+            // newDailyIncreases[job.id] = increaseOnDate; 
+            // useEffect에서는 viewInputs를 '' (빈 문자열)로 초기화해야 자동 계산 로직이 매끄럽게 동작합니다.
+            // 만약 저장된 값이 0이라면, 빈칸 대신 0이 표시됩니다.
+            newDailyIncreases[job.id] = increaseOnDate === 0 ? 0 : (increaseOnDate || '');
             newRecordsForDate[job.id] = jobRecordsOn.map(r => r.id);
         }
         setPreviousViews(newPrevViews); 
@@ -33,9 +37,28 @@ const DailyUpdate = ({ jobs, dailyRecords, loadData }) => {
 
     }, [selectedDate, dailyRecords, activeJobs]);
 
-    const handleChange = (jobId, value) => { 
-        setViewInputs(prev => ({ ...prev, [jobId]: value === '' ? '' : (parseInt(value) || 0) })); 
+    // --- ⬇️ (수정) '일일 증가분' 입력 핸들러 ⬇️ ---
+    const handleDailyChange = (jobId, dailyValue) => {
+        const dailyIncrease = dailyValue === '' ? '' : (parseInt(dailyValue) || 0);
+        setViewInputs(prev => ({ ...prev, [jobId]: dailyIncrease })); 
     };
+    // --- ⬆️ (수정) ⬆️ ---
+
+    // --- ⬇️ (수정) '총 누적' 입력 핸들러 추가 ⬇️ ---
+    const handleTotalChange = (jobId, totalValue) => {
+        const prevTotal = previousViews[jobId] || 0;
+        let newDailyIncrease;
+
+        if (totalValue === '') {
+            newDailyIncrease = '';
+        } else {
+            const newTotal = parseInt(totalValue) || 0;
+            newDailyIncrease = newTotal - prevTotal;
+        }
+        setViewInputs(prev => ({ ...prev, [jobId]: newDailyIncrease }));
+    };
+    // --- ⬆️ (수정) ⬆️ ---
+
 
     const handleSubmit = async () => {
         setIsSaving(true);
@@ -44,8 +67,11 @@ const DailyUpdate = ({ jobs, dailyRecords, loadData }) => {
             for (const [jobId, dailyIncreaseInput] of Object.entries(viewInputs)) {
                 const recordsToDelete = recordsForDate[jobId] || [];
                 recordsToDelete.forEach(docId => batch.delete(db.collection('dailyRecords').doc(docId)));
-                const increase = dailyIncreaseInput || 0;
-                if (increase !== 0) {
+                
+                // dailyIncreaseInput이 ''(빈 문자열)이면 0으로, 아니면 해당 숫자로 저장
+                const increase = parseInt(dailyIncreaseInput) || 0; 
+                
+                if (increase !== 0 || recordsToDelete.length > 0) { // 0을 저장하거나, 기존 값을 삭제해야 하는 경우
                     const docRef = db.collection('dailyRecords').doc();
                     batch.set(docRef, { 
                         jobId, 
@@ -66,23 +92,20 @@ const DailyUpdate = ({ jobs, dailyRecords, loadData }) => {
         }
     };
     
-    // --- ⬇️ (수정) 날짜 변경 함수 추가 ⬇️ ---
     const handleDateChange = (days) => {
         let currentDate = new Date(selectedDate);
         if (isNaN(currentDate.getTime())) {
-            currentDate = new Date(); // 혹시 날짜가 유효하지 않으면 오늘 날짜로
+            currentDate = new Date(); 
         }
         currentDate.setDate(currentDate.getDate() + days);
         setSelectedDate(currentDate.toISOString().split('T')[0]);
     };
-    // --- ⬆️ (수정) ⬆️ ---
 
     return (
         <div className="p-4 md:p-8">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
                 <div>
                     <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-4">조회수 업데이트</h2>
-                    {/* --- ⬇️ (수정) 날짜 입력 UI에 화살표 버튼 추가 ⬇️ --- */}
                     <div className="flex items-center space-x-4">
                         <label className="font-medium text-gray-700">날짜:</label>
                         <div className="flex items-center">
@@ -95,16 +118,26 @@ const DailyUpdate = ({ jobs, dailyRecords, loadData }) => {
                             </button>
                         </div>
                     </div>
-                    {/* --- ⬆️ (수정) ⬆️ --- */}
                 </div>
                 {activeJobs.length > 0 && <Button onClick={handleSubmit} disabled={isSaving} variant="primary" className="mt-4 md:mt-0 w-full md:w-auto">{isSaving ? '저장 중...' : '조회수 저장'}</Button>}
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                 {activeJobs.map(job => {
+                    // --- ⬇️ (수정) 입력값/표시값 계산 로직 ⬇️ ---
                     const prevTotal = previousViews[job.id] || 0;
+                    // dailyIncrease는 '', 0, 10 등 숫자거나 빈 문자열일 수 있습니다.
                     const dailyIncrease = viewInputs[job.id] ?? ''; 
-                    const currentTotal = prevTotal + (parseInt(dailyIncrease) || 0); 
+                    
+                    let displayTotal;
+                    if (dailyIncrease === '') {
+                        // 일일 증가분이 비어있으면, 총 누적도 비어있는 것처럼 표시
+                        displayTotal = '';
+                    } else {
+                        // 일일 증가분이 숫자(0 포함)이면, 총 누적 계산
+                        displayTotal = prevTotal + (parseInt(dailyIncrease) || 0);
+                    }
+                    // --- ⬆️ (수정) ⬆️ ---
 
                     return (
                         <div key={job.id} className="bg-white rounded-xl shadow-lg p-6">
@@ -112,20 +145,37 @@ const DailyUpdate = ({ jobs, dailyRecords, loadData }) => {
                                 <h3 className="text-lg font-semibold text-gray-800">{job.title}</h3>
                                 <p className="text-sm text-gray-600">{job.site} | 모집유형: {job.position}</p>
                             </div>
-                            <div>
-                                <label className="label-style mb-1">일일 조회수 (증가분)</label>
-                                <Input 
-                                    type="number" 
-                                    min="0" 
-                                    value={dailyIncrease} 
-                                    onChange={(e) => handleChange(job.id, e.target.value)} 
-                                    className="w-full md:w-48" 
-                                    placeholder="0" 
-                                />
-                                <p className="text-xs text-gray-500 mt-1">
-                                    (어제까지 누적: {prevTotal}) + (오늘 증가: {dailyIncrease || 0}) = (총 누적: {currentTotal})
-                                </p>
+                            
+                            {/* --- ⬇️ (수정) 입력 UI 변경 ⬇️ --- */}
+                            <div className="flex flex-wrap items-end gap-4">
+                                <div>
+                                    <label className="label-style mb-1">일일 조회수 (증가분)</label>
+                                    <Input 
+                                        type="number" 
+                                        min="0" 
+                                        value={dailyIncrease} 
+                                        onChange={(e) => handleDailyChange(job.id, e.target.value)} 
+                                        className="w-full md:w-40" 
+                                        placeholder="0" 
+                                    />
+                                </div>
+                                <div className="text-2xl text-gray-400 pb-2">=</div>
+                                <div>
+                                    <label className="label-style mb-1">총 누적 조회수</label>
+                                    <Input 
+                                        type="number" 
+                                        min={prevTotal}
+                                        value={displayTotal} 
+                                        onChange={(e) => handleTotalChange(job.id, e.target.value)} 
+                                        className="w-full md:w-40" 
+                                        placeholder={prevTotal.toString()} // 기본값으로 어제 누적 표시
+                                    />
+                                </div>
                             </div>
+                            <p className="text-xs text-gray-500 mt-2">
+                                (어제까지 누적: {prevTotal})
+                            </p>
+                            {/* --- ⬆️ (수정) ⬆️ --- */}
                         </div>
                     );
                 })}
