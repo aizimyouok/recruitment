@@ -1,6 +1,6 @@
 // --- 조회수 업데이트 ---
 const { useState, useMemo, useEffect } = React;
-// db, alert, Input, Button은 전역으로 로드됩니다.
+// db, alert, Input, Button, Icon은 전역으로 로드됩니다.
 
 const DailyUpdate = ({ jobs, dailyRecords, loadData }) => {
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -65,18 +65,41 @@ const DailyUpdate = ({ jobs, dailyRecords, loadData }) => {
             setIsSaving(false); 
         }
     };
+    
+    // --- ⬇️ (수정) 날짜 변경 함수 추가 ⬇️ ---
+    const handleDateChange = (days) => {
+        let currentDate = new Date(selectedDate);
+        if (isNaN(currentDate.getTime())) {
+            currentDate = new Date(); // 혹시 날짜가 유효하지 않으면 오늘 날짜로
+        }
+        currentDate.setDate(currentDate.getDate() + days);
+        setSelectedDate(currentDate.toISOString().split('T')[0]);
+    };
+    // --- ⬆️ (수정) ⬆️ ---
 
     return (
         <div className="p-4 md:p-8">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
                 <div>
                     <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-4">조회수 업데이트</h2>
-                    <div className="flex items-center space-x-4"><label className="font-medium text-gray-700">날짜:</label><Input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} /></div>
+                    {/* --- ⬇️ (수정) 날짜 입력 UI에 화살표 버튼 추가 ⬇️ --- */}
+                    <div className="flex items-center space-x-4">
+                        <label className="font-medium text-gray-700">날짜:</label>
+                        <div className="flex items-center">
+                            <button onClick={() => handleDateChange(-1)} className="p-2 text-gray-600 hover:text-gray-900 rounded-full hover:bg-gray-100">
+                                <Icon name="chevron-left" size={20} />
+                            </button>
+                            <Input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="mx-1" />
+                            <button onClick={() => handleDateChange(1)} className="p-2 text-gray-600 hover:text-gray-900 rounded-full hover:bg-gray-100">
+                                <Icon name="chevron-right" size={20} />
+                            </button>
+                        </div>
+                    </div>
+                    {/* --- ⬆️ (수정) ⬆️ --- */}
                 </div>
                 {activeJobs.length > 0 && <Button onClick={handleSubmit} disabled={isSaving} variant="primary" className="mt-4 md:mt-0 w-full md:w-auto">{isSaving ? '저장 중...' : '조회수 저장'}</Button>}
             </div>
             
-            {/* --- ⬇️ (수정) 'grid' 레이아웃으로 변경 ⬇️ --- */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                 {activeJobs.map(job => {
                     const prevTotal = previousViews[job.id] || 0;
@@ -96,9 +119,7 @@ const DailyUpdate = ({ jobs, dailyRecords, loadData }) => {
                                     min="0" 
                                     value={dailyIncrease} 
                                     onChange={(e) => handleChange(job.id, e.target.value)} 
-                                    // --- ⬇️ (수정) 입력창 너비 고정 ⬇️ ---
                                     className="w-full md:w-48" 
-                                    // --- ⬆️ (수정) ⬆️ ---
                                     placeholder="0" 
                                 />
                                 <p className="text-xs text-gray-500 mt-1">
@@ -109,7 +130,6 @@ const DailyUpdate = ({ jobs, dailyRecords, loadData }) => {
                     );
                 })}
             </div>
-            {/* --- ⬆️ (수정) ⬆️ --- */}
             
             {activeJobs.length === 0 && <div className="text-center py-12 text-gray-500">진행중인 공고가 없습니다.</div>}
         </div>
