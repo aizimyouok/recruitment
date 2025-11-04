@@ -34,15 +34,49 @@ const TrendAnalysis = ({ jobs, dailyRecords, applicants }) => {
         
         const dateMap = {};
         filteredRecords.forEach(record => { if (!dateMap[record.date]) dateMap[record.date] = { date: record.date, views: 0, applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 }; dateMap[record.date].views += record.viewsIncrease || 0; });
+        
+        // --- ⬇️ (수정) 집계 로직 변경 ⬇️ ---
         filteredApplicants.forEach(applicant => { 
             const date = applicant.appliedDate; 
             if (!dateMap[date]) dateMap[date] = { date: date, views: 0, applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 }; 
-            dateMap[date].applications++; 
-            if (['컨택', '면접', '합격', '입사'].includes(applicant.status)) dateMap[date].contacts++;
-            if (['면접', '합격', '입사'].includes(applicant.status)) dateMap[date].interviews++;
-            if (['합격', '입사'].includes(applicant.status)) dateMap[date].offers++;
-            if (applicant.status === '입사') dateMap[date].hires++;
+            
+            const totals = dateMap[date]; // totals는 dateMap[date]의 참조
+            totals.applications++; 
+
+            switch (applicant.status) {
+                case '입사':
+                    totals.hires++;
+                    totals.offers++;
+                    totals.interviews++;
+                    totals.contacts++;
+                    break;
+                case '합격':
+                    totals.offers++;
+                    totals.interviews++;
+                    totals.contacts++;
+                    break;
+                case '면접':
+                    totals.interviews++;
+                    totals.contacts++;
+                    break;
+                case '컨택':
+                    totals.contacts++;
+                    break;
+                case '불합격':
+                    totals.interviews++;
+                    totals.contacts++;
+                    break;
+                case '취소':
+                    totals.interviews++;
+                    totals.contacts++;
+                    break;
+                case '거절':
+                    totals.contacts++;
+                    break;
+            }
         });
+        // --- ⬆️ (수정) ⬆️ ---
+
         return Object.values(dateMap).sort((a, b) => a.date.localeCompare(b.date));
     }, [filteredData]); 
 
@@ -92,11 +126,9 @@ const TrendAnalysis = ({ jobs, dailyRecords, applicants }) => {
                     {period === 'custom' && (<div className="flex items-center space-x-2"><Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="py-2" /><span>~</span><Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="py-2" /></div>)}
                     
                     <div className="ml-auto">
-                         {/* --- ⬇️ (수정) '기타' 옵션 제거 ⬇️ --- */}
                          <Select value={positionFilter} onChange={(e) => setPositionFilter(e.target.value)} className="px-3 py-2 text-sm font-medium">
                             <option value="all">전체 유형</option> <option value="영업">영업</option> <option value="강사">강사</option>
                         </Select>
-                        {/* --- ⬆️ (수정) ⬆️ --- */}
                     </div>
                 </div>
             </div>
