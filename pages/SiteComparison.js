@@ -25,7 +25,6 @@ const SiteComparison = ({ jobs, applicants, dailyRecords }) => {
             
             const siteApplicants = applicants.filter(a => jobIds.includes(a.appliedJobId));
             
-            // --- ⬇️ (수정) 'duplicates', 'rejectCancel', 'fails', 'exclude' 항목 추가 ⬇️ ---
             const totals = { 
                 key: `${site}-${position}`,
                 site, 
@@ -40,20 +39,55 @@ const SiteComparison = ({ jobs, applicants, dailyRecords }) => {
                 offers: 0, 
                 fails: 0,
                 hires: 0,
-                exclude: 0 // '제외'
+                exclude: 0 
             };
             
+            // --- ⬇️ (수정) 집계 로직 변경 ⬇️ ---
             siteApplicants.forEach(a => { 
                 totals.applications++; 
-                if (a.status === '중복') totals.duplicates++;
-                if (a.status === '거절' || a.status === '취소') totals.rejectCancel++;
-                if (a.status === '불합격') totals.fails++;
-                if (a.status === '제외') totals.exclude++; // '제외' 카운트
 
-                if (['컨택', '면접', '합격', '입사'].includes(a.status)) totals.contacts++;
-                if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++; 
-                if (['합격', '입사'].includes(a.status)) totals.offers++; 
-                if (a.status === '입사') totals.hires++; 
+                switch (a.status) {
+                    case '입사':
+                        totals.hires++;
+                        totals.offers++;
+                        totals.interviews++;
+                        totals.contacts++;
+                        break;
+                    case '합격':
+                        totals.offers++;
+                        totals.interviews++;
+                        totals.contacts++;
+                        break;
+                    case '면접':
+                        totals.interviews++;
+                        totals.contacts++;
+                        break;
+                    case '컨택':
+                        totals.contacts++;
+                        break;
+                    case '불합격':
+                        totals.fails++;
+                        totals.interviews++; 
+                        totals.contacts++;
+                        break;
+                    case '취소':
+                        totals.rejectCancel++; // '거절/취소' 합산 필드에 추가
+                        totals.interviews++;
+                        totals.contacts++;
+                        break;
+                    case '거절':
+                        totals.rejectCancel++; // '거절/취소' 합산 필드에 추가
+                        totals.contacts++;
+                        break;
+                    case '중복':
+                        totals.duplicates++;
+                        break;
+                    case '제외':
+                        totals.exclude++;
+                        break;
+                    default:
+                        break;
+                }
             });
             // --- ⬆️ (수정) ⬆️ ---
             
@@ -63,7 +97,6 @@ const SiteComparison = ({ jobs, applicants, dailyRecords }) => {
         }).filter(data => data.jobs > 0); 
     }, [jobs, applicants, dailyRecords]);
     
-    // --- ⬇️ (수정) 차트 데이터셋에 '중복', '거절/취소', '불합격', '제외' 추가 ⬇️ ---
     const chartData = {
         labels: siteData.map(d => `${d.site} (${d.position})`),
         datasets: [ 
@@ -78,7 +111,6 @@ const SiteComparison = ({ jobs, applicants, dailyRecords }) => {
             { label: '입사자', data: siteData.map(d => d.hires), backgroundColor: 'rgba(22, 163, 74, 1)' } 
         ]
     };
-    // --- ⬆️ (수정) ⬆️ ---
 
     return (
         <div className="p-4 md:p-8">
@@ -89,7 +121,6 @@ const SiteComparison = ({ jobs, applicants, dailyRecords }) => {
                         <h3 className="text-xl font-bold text-center mb-6">
                             {data.site} - <span className="text-blue-600">{data.position}</span>
                         </h3>
-                        {/* --- ⬇️ (수정) '중복', '거절/취소', '제외', '합격/불합격' 포맷 적용 ⬇️ --- */}
                         <div className="space-y-3">
                             <div className="stat-item"><span className="stat-label">조회수</span><span className="stat-value">{data.views}</span></div>
                             <div className="stat-item"><span className="stat-label">지원자</span><span className="stat-value">{data.applications}</span></div>
@@ -107,7 +138,6 @@ const SiteComparison = ({ jobs, applicants, dailyRecords }) => {
                             <div className="stat-item"><span className="stat-label">입사자</span><span className="stat-value text-blue-600">{data.hires}</span></div>
                             <div className="flex justify-between items-center pt-2"><span className="text-gray-600 font-semibold">전환율</span><span className="text-2xl font-bold text-blue-600">{data.conversionRate}%</span></div>
                         </div>
-                        {/* --- ⬆️ (수정) ⬆️ --- */}
                     </div>
                 ))}
             </div>
