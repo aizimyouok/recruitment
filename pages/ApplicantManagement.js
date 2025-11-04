@@ -18,7 +18,9 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
     const [searchTerm, setSearchTerm] = useState('');
 
     const activeJobs = useMemo(() => jobs.filter(j => j.status === '진행중'), [jobs]);
-    const applicantStatuses = ['지원', '중복', '컨택', '면접', '합격', '입사', '거절', '취소', '불합격'];
+    // --- ⬇️ (수정) '제외' 항목 추가 ⬇️ ---
+    const applicantStatuses = ['지원', '중복', '컨택', '면접', '합격', '입사', '거절', '취소', '불합격', '제외'];
+    // --- ⬆️ (수정) ⬆️ ---
 
     useEffect(() => {
         if (!editingApplicant && activeJobs.length > 0 && !formData.appliedJobId) {
@@ -187,14 +189,12 @@ const ApplicantManagement = ({ applicants, jobs, loadData }) => {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="label-style">지원 공고</label>
-                                    {/* --- ⬇️ (수정) 공고 선택 시 '[사이트명]' 추가 ⬇️ --- */}
                                     <Select name="appliedJobId" value={formData.appliedJobId} onChange={handleInputChange} required>
                                         <option value="">-- 공고 선택 --</option>
                                         {activeJobs.map(job => 
                                             <option key={job.id} value={job.id}>[{job.site}] {job.title} ({job.position})</option>
                                         )}
                                     </Select>
-                                    {/* --- ⬆️ (수정) ⬆️ --- */}
                                 </div>
                                 <div><label className="label-style">지원 날짜</label><Input type="date" name="appliedDate" value={formData.appliedDate} onChange={handleInputChange} required /></div>
                             </div>
