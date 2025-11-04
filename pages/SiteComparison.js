@@ -25,7 +25,7 @@ const SiteComparison = ({ jobs, applicants, dailyRecords }) => {
             
             const siteApplicants = applicants.filter(a => jobIds.includes(a.appliedJobId));
             
-            // --- ⬇️ (수정) 'duplicates', 'rejectCancel', 'fails' 항목 추가 ⬇️ ---
+            // --- ⬇️ (수정) 'duplicates', 'rejectCancel', 'fails', 'exclude' 항목 추가 ⬇️ ---
             const totals = { 
                 key: `${site}-${position}`,
                 site, 
@@ -39,7 +39,8 @@ const SiteComparison = ({ jobs, applicants, dailyRecords }) => {
                 interviews: 0, 
                 offers: 0, 
                 fails: 0,
-                hires: 0 
+                hires: 0,
+                exclude: 0 // '제외'
             };
             
             siteApplicants.forEach(a => { 
@@ -47,6 +48,7 @@ const SiteComparison = ({ jobs, applicants, dailyRecords }) => {
                 if (a.status === '중복') totals.duplicates++;
                 if (a.status === '거절' || a.status === '취소') totals.rejectCancel++;
                 if (a.status === '불합격') totals.fails++;
+                if (a.status === '제외') totals.exclude++; // '제외' 카운트
 
                 if (['컨택', '면접', '합격', '입사'].includes(a.status)) totals.contacts++;
                 if (['면접', '합격', '입사'].includes(a.status)) totals.interviews++; 
@@ -61,7 +63,7 @@ const SiteComparison = ({ jobs, applicants, dailyRecords }) => {
         }).filter(data => data.jobs > 0); 
     }, [jobs, applicants, dailyRecords]);
     
-    // --- ⬇️ (수정) 차트 데이터셋에 '중복', '거절/취소', '불합격' 추가 ⬇️ ---
+    // --- ⬇️ (수정) 차트 데이터셋에 '중복', '거절/취소', '불합격', '제외' 추가 ⬇️ ---
     const chartData = {
         labels: siteData.map(d => `${d.site} (${d.position})`),
         datasets: [ 
@@ -72,6 +74,7 @@ const SiteComparison = ({ jobs, applicants, dailyRecords }) => {
             { label: '면접', data: siteData.map(d => d.interviews), backgroundColor: 'rgba(139, 92, 246, 0.8)' }, 
             { label: '합격', data: siteData.map(d => d.offers), backgroundColor: 'rgba(16, 185, 129, 0.8)' },
             { label: '불합격', data: siteData.map(d => d.fails), backgroundColor: 'rgba(239, 68, 68, 0.8)' },
+            { label: '제외', data: siteData.map(d => d.exclude), backgroundColor: 'rgba(239, 68, 68, 0.3)' },
             { label: '입사자', data: siteData.map(d => d.hires), backgroundColor: 'rgba(22, 163, 74, 1)' } 
         ]
     };
@@ -86,12 +89,13 @@ const SiteComparison = ({ jobs, applicants, dailyRecords }) => {
                         <h3 className="text-xl font-bold text-center mb-6">
                             {data.site} - <span className="text-blue-600">{data.position}</span>
                         </h3>
-                        {/* --- ⬇️ (수정) '중복', '거절/취소', '합격/불합격' 포맷 적용 ⬇️ --- */}
+                        {/* --- ⬇️ (수정) '중복', '거절/취소', '제외', '합격/불합격' 포맷 적용 ⬇️ --- */}
                         <div className="space-y-3">
                             <div className="stat-item"><span className="stat-label">조회수</span><span className="stat-value">{data.views}</span></div>
                             <div className="stat-item"><span className="stat-label">지원자</span><span className="stat-value">{data.applications}</span></div>
                             <div className="stat-item"><span className="stat-label">중복</span><span className="stat-value text-red-600">{data.duplicates}</span></div>
                             <div className="stat-item"><span className="stat-label">거절/취소</span><span className="stat-value text-red-600">{data.rejectCancel}</span></div>
+                            <div className="stat-item"><span className="stat-label">제외</span><span className="stat-value text-red-600">{data.exclude}</span></div>
                             <div className="stat-item"><span className="stat-label">컨택</span><span className="stat-value">{data.contacts}</span></div>
                             <div className="stat-item"><span className="stat-label">면접</span><span className="stat-value">{data.interviews}</span></div>
                             <div className="stat-item">
