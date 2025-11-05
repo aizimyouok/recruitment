@@ -319,7 +319,7 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
             });
             return { position: pos, views: totalViews, ...totals };
         });
-    }, [filteredData, jobs, selectedSites]); // (주석 제거)
+    }, [filteredData, jobs, selectedSites]);
 
     const demographicsData = useMemo(() => {
         const gender = { '남': 0, '여': 0, '미입력': 0 };
@@ -331,7 +331,7 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
             '46~50': 0, 
             '51~55': 0, 
             '56 이상': 0,
-            '미입력': 0 // (꼬리 콤마 제거)
+            '미입력': 0
         };
 
         filteredData.filteredApplicants.forEach(a => {
@@ -361,17 +361,10 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
     return (
         <div className={`p-4 md:p-8 ${isPrintMode ? 'report-print-area' : ''}`}>
             
+            {/* --- ⬇️ (수정) 인쇄 모드 헤더 (타이틀/기준 제거, 버튼만 남김) ⬇️ --- */}
             {isPrintMode ? (
-                <div className="mb-8">
-                    <div className="flex justify-between items-start mb-8">
-                        <div>
-                            <h2 className="text-3xl font-bold text-gray-800">대시보드 요약 리포트</h2>
-                            <p className="text-gray-600">
-                                {selectedSites.length === 3 ? '전체 사이트' : selectedSites.join(', ')}
-                                {selectedPositions.length === 2 ? ' | 전체 유형' : ` | ${selectedPositions.join(', ')}`}
-                                {dateRangeType !== 'all' ? ` | ${dateRange.start} ~ ${dateRange.end}` : ' | 전체 기간'}
-                            </p>
-                        </div>
+                <div className="mb-4">
+                    <div className="flex justify-end items-start mb-4">
                         <div className="no-print flex space-x-2">
                             <Button variant="primary" onClick={() => window.print()} className="flex items-center space-x-2">
                                 <Icon name="printer" size={18} /> <span>인쇄하기</span>
@@ -383,6 +376,7 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                     </div>
                 </div>
             ) : (
+            // --- ⬆️ (수정) ⬆️ ---
                 <div className="hidden md:flex justify-between items-start mb-8 no-print">
                      <div>
                         <h2 className="text-3xl font-bold text-gray-800">대시보드</h2>
@@ -497,9 +491,13 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
             {/* 1. 모집유형별 현황 */}
             <div className={`bg-white rounded-xl shadow-lg p-6 mb-8 ${isPrintMode ? 'report-section' : ''}`}>
                 <h3 className="text-xl font-semibold mb-4">모집유형별 현황</h3>
-                <p className="text-sm text-gray-500 -mt-2 mb-4">
-                    (기준: {selectedSites.length === 3 ? '전체 사이트' : selectedSites.join(', ')} | {dateRangeType === 'all' ? '전체 기간' : `${dateRange.start} ~ ${dateRange.end}`})
-                </p>
+                {/* ⬇️ (수정) 인쇄 모드일 때만 기준 텍스트 숨기기 (일반 모드에서는 표시) ⬇️ */}
+                {!isPrintMode && (
+                    <p className="text-sm text-gray-500 -mt-2 mb-4">
+                        (기준: {selectedSites.length === 3 ? '전체 사이트' : selectedSites.join(', ')} | {dateRangeType === 'all' ? '전체 기간' : `${dateRange.start} ~ ${dateRange.end}`})
+                    </p>
+                )}
+                {/* ⬆️ (수정) ⬆️ */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {positionSummaryData.map(data => {
                         const bgColor = positionBgColors[data.position] || 'border-gray-200';
@@ -575,9 +573,9 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
             {widgetSettings.demographics && (
                 <div className={`bg-white rounded-xl shadow-lg p-6 mb-8 ${isPrintMode ? 'report-section' : ''}`}>
                     <h3 className="text-xl font-semibold mb-4">지원자 통계 현황</h3>
-                    <p className="text-sm text-gray-500 -mt-2 mb-4">
-                        (기준: {selectedSites.length === 3 ? '전체 사이트' : selectedSites.join(', ')} | {selectedPositions.length === 2 ? '전체 유형' : selectedPositions.join(', ')} | {dateRangeType === 'all' ? '전체 기간' : `${dateRange.start} ~ ${dateRange.end}`})
-                    </p>
+                    {/* --- ⬇️ (수정) 기준 텍스트 제거 ⬇️ --- */}
+                    {/* <p className="text-sm text-gray-500 -mt-2 mb-4">...</p> */}
+                    {/* --- ⬆️ (수정) ⬆️ --- */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* 성별 분포 */}
                         <div>
