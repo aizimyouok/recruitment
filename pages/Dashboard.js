@@ -100,7 +100,16 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
         const activeJobs = filteredData.filteredJobs.filter(j => j.status === '진행중');
         const totalViews = filteredData.filteredRecords.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
         
-        const totals = { applications: 0, duplicates: 0, rejectCancel: 0, contacts: 0, interviews: 0, offers: 0, fails: 0, hires: 0, exclude: 0 };
+        const totals = { 
+            applications: 0, duplicates: 0, rejectCancel: 0, 
+            contacts: 0,    // funnel_contacts (컨택 이상)
+            contacting: 0,  // status === '컨택' (면접 예정)
+            interviews: 0,  // funnel_interviews (면접 이상)
+            offers: 0,      // funnel_offers (합격 이상)
+            fails: 0, 
+            hires: 0, 
+            exclude: 0 
+        };
         
         filteredData.filteredApplicants.forEach(a => {
             totals.applications++;
@@ -122,6 +131,7 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                     totals.contacts++;
                     break;
                 case '컨택':
+                    totals.contacting++; // "면접 예정자" 카운트
                     totals.contacts++;
                     break;
                 case '불합격':
@@ -383,7 +393,7 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     <KPICard title="진행중인 공고" value={stats.activeJobs} icon="briefcase" color="blue" />
                     <KPICard title="총 지원자" value={stats.applications} icon="users" color="green" />
-                    <KPICard title="총 면접 인원" value={stats.interviews} icon="user-check" color="purple" />
+                    <KPICard title="면접 예정 (컨택 중)" value={stats.contacting} icon="user-check" color="purple" />
                     <KPICard 
                         title="입사자" 
                         value={`${stats.hires} / ${stats.targetHires}`} 
@@ -397,7 +407,6 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
             {widgetSettings.conversion && (
                 <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
                     <h3 className="text-xl font-semibold mb-4">전환율 분석</h3>
-                    {/* --- ⬇️ (수정) '불합격', '제외' 단계 제거 ⬇️ --- */}
                     <div className="flex items-center justify-around flex-wrap gap-4">
                         <ConversionStep label="조회" value={stats.views} /> <Icon name="chevron-right" className="text-gray-400" />
                         <ConversionStep label="지원" value={stats.applications} /> <Icon name="chevron-right" className="text-gray-400" />
@@ -408,7 +417,6 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                         <ConversionStep label="합격" value={stats.offers} /> <Icon name="chevron-right" className="text-gray-400" />
                         <ConversionStep label="입사" value={stats.hires} />
                     </div>
-                    {/* --- ⬆️ (수정) ⬆️ --- */}
                     <div className="mt-6 text-center">
                         <p className="text-gray-600">총 전환율 (지원자 → 입사자)</p>
                         <p className="text-4xl font-bold text-blue-600">{stats.conversionRate}%</p>
@@ -427,12 +435,16 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                             </button>
                         )}
                     </div>
+                    {/* --- ⬇️ (수정) dateRange와 dateRangeType props 전달 ⬇️ --- */}
                     <SiteSummary 
                         jobs={jobs} 
                         dailyRecords={dailyRecords} 
                         applicants={applicants} 
                         filter={selectedSites.length === 1 ? selectedSites[0] : null} 
+                        dateRange={dateRange}
+                        dateRangeType={dateRangeType}
                     />
+                    {/* --- ⬆️ (수정) ⬆️ --- */}
 
                     {widgetSettings.siteChart && showSiteChart && (
                         <div className="mt-6 border-t pt-6">
