@@ -24,6 +24,8 @@
             vertical-align: middle;
         }
         /* ... (기존 스타일) ... */
+        
+        /* --- ⬇️ (수정) 인쇄 스타일 수정 (한 페이지 최적화) ⬇️ --- */
         @media print {
             body * {
                 visibility: hidden;
@@ -36,18 +38,37 @@
                 left: 0;
                 top: 0;
                 width: 100%;
-                padding: 1.5rem;
+                padding: 0.5rem; /* 인쇄 여백 최소화 */
             }
             .no-print {
                 display: none !important;
             }
             canvas {
                 max-width: 100% !important;
+                /* 차트가 강제로 다시 그려지도록 함 */
+                print-color-adjust: exact; 
+                -webkit-print-color-adjust: exact;
             }
             .report-section {
-                page-break-inside: avoid;
+                page-break-inside: avoid !important; /* 페이지 나뉨 방지 */
+                box-shadow: none !important; /* 그림자 제거 */
+                border: 1px solid #eee; /* 얇은 테두리 */
+                margin-bottom: 1rem !important; /* 섹션 간 간격 축소 */
+                padding: 1rem !important; /* 섹션 내부 패딩 축소 */
             }
+            /* 인쇄 시 폰트 크기/간격 강제 축소 */
+            .report-print-area .text-sm { font-size: 0.8rem !important; }
+            .report-print-area .text-lg { font-size: 1rem !important; }
+            .report-print-area .text-xl { font-size: 1.15rem !important; }
+            .report-print-area .mb-4 { margin-bottom: 0.5rem !important; }
+            .report-print-area .gap-4 { gap: 0.5rem !important; }
+            .report-print-area .stat-item { padding-bottom: 0.25rem !important; }
+            .report-print-area .border-t { padding-top: 0.5rem !important; margin-top: 0.5rem !important; }
+            .report-print-area .p-6 { padding: 1rem !important; } /* 기존 p-6 축소 */
+            .report-print-area .p-4 { padding: 0.75rem !important; } /* 기존 p-4 축소 */
+            .report-print-area .mb-8 { margin-bottom: 1rem !important; } /* 기존 mb-8 축소 */
         }
+        /* --- ⬆️ (수정) ⬆️ --- */
     </style>
 </head>
 <body class="bg-gray-50">
@@ -210,16 +231,18 @@
             // 4. 로딩 완료, 앱 렌더링
             return (
                 <div className="flex flex-col md:flex-row h-screen bg-gray-50 relative">
+                    {/* --- (수정) 인쇄 모드일 때 사이드바 숨기기 --- */}
                     <Sidebar
                         currentPage={currentPage}
                         setCurrentPage={setCurrentPage}
                         user={user}
                         isSidebarOpen={isSidebarOpen}
                         setIsSidebarOpen={setIsSidebarOpen}
+                        className={document.body.classList.contains('print-mode-active') ? 'no-print' : ''}
                     />
                     <div className="flex-1 overflow-auto">
                         {/* 모바일용 헤더 */}
-                        <div className="sticky top-0 bg-white shadow-sm p-4 z-10 md:hidden flex justify-between items-center">
+                        <div className="sticky top-0 bg-white shadow-sm p-4 z-10 md:hidden flex justify-between items-center no-print">
                             <h1 className="text-lg font-bold text-gray-800">
                                 { currentPage === 'applicants' ? '지원자 관리' :
                                   currentPage === 'daily' ? '조회수 업데이트' :
