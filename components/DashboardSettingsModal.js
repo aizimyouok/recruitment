@@ -31,6 +31,12 @@ const DashboardSettingsModal = ({ settings, onSave, onClose }) => {
                         <span className="font-medium text-gray-700">사이트별 비교 차트</span>
                         <input type="checkbox" checked={currentSettings.siteChart} onChange={() => handleToggle('siteChart')} className="h-5 w-5 text-blue-600 rounded" />
                     </label>
+                    {/* --- ⬇️ (추가) '지원자 통계' 토글 ⬇️ --- */}
+                    <label className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                        <span className="font-medium text-gray-700">지원자 통계 현황</span>
+                        <input type="checkbox" checked={currentSettings.demographics} onChange={() => handleToggle('demographics')} className="h-5 w-5 text-blue-600 rounded" />
+                    </label>
+                    {/* --- ⬆️ (추가) ⬆️ --- */}
                 </div>
                 <div className="mt-6">
                     <button onClick={handleSave} className="w-full btn-primary py-3"> 저장 </button>
