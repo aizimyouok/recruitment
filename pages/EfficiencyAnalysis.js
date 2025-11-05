@@ -1,13 +1,42 @@
 // --- 효율성 분석 ---
 const { useState, useMemo } = React;
-// (컴포넌트들은 전역으로 로드됩니다)
+// Input, Select, Button, Icon 등은 전역으로 로드됩니다.
 
 const EfficiencyAnalysis = ({ jobs, applicants, siteSettings }) => {
     const [analysisType, setAnalysisType] = useState('site'); // 'site' or 'position'
 
-    // --- ⬇️ (수정) 'analysisData' 로직 수정 (site <-> site-position) ⬇️ ---
+    // --- ⬇️ (추가) 날짜 필터 상태 ⬇️ ---
+    const [dateRangeType, setDateRangeType] = useState('all');
+    const [customRange, setCustomRange] = useState({ start: '', end: '' });
+
+    const dateRange = useMemo(() => {
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
+        if (dateRangeType === 'week') {
+            const weekAgo = new Date(new Date().setDate(today.getDate() - 7));
+            return { start: weekAgo.toISOString().split('T')[0], end: todayStr };
+        }
+        if (dateRangeType === 'month') {
+            const monthAgo = new Date(new Date().setMonth(today.getMonth() - 1));
+            return { start: monthAgo.toISOString().split('T')[0], end: todayStr };
+        }
+        if (dateRangeType === 'custom' && customRange.start && customRange.end) {
+            return customRange;
+        }
+        return { start: null, end: todayStr };
+    }, [dateRangeType, customRange]);
+    // --- ⬆️ (추가) ⬆️ ---
+
+
     const analysisData = useMemo(() => {
         
+        // --- ⬇️ (추가) 날짜 필터링된 지원자 ⬇️ ---
+        const filteredApplicants = applicants.filter(a => {
+            if (dateRangeType === 'all' || !dateRange.start) return true;
+            return a.appliedDate >= dateRange.start && a.appliedDate <= dateRange.end;
+        });
+        // --- ⬆️ (추가) ⬆️ ---
+
         // --- A. 사이트-유형별 분석 ---
         if (analysisType === 'site') {
             const combinations = [
@@ -25,7 +54,10 @@ const EfficiencyAnalysis = ({ jobs, applicants, siteSettings }) => {
                 const siteJobs = jobs.filter(j => j.site === site && j.position === position); 
                 const jobIds = siteJobs.map(j => j.id); 
                 const settings = siteSettings.find(s => s.site === site);
-                const siteApplicants = applicants.filter(a => jobIds.includes(a.appliedJobId));
+                
+                // --- ⬇️ (수정) filteredApplicants 사용 ⬇️ ---
+                const siteApplicants = filteredApplicants.filter(a => jobIds.includes(a.appliedJobId));
+                // --- ⬆️ (수정) ⬆️ ---
                 
                 const totals = { applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 };
                 
@@ -64,13 +96,14 @@ const EfficiencyAnalysis = ({ jobs, applicants, siteSettings }) => {
                     }
                 });
 
-                // 비용은 사이트별로 계산되므로, 이 분석에서는 0으로 처리 (비용 분석은 하단 ROI 섹션에서)
                 const cost = 0; const costPerHire = 0;
                 
                 const rates = {
                     contactFromAppRate: totals.applications > 0 ? ((totals.contacts / totals.applications)*100).toFixed(1) : 0,
                     interviewFromContactRate: totals.contacts > 0 ? ((totals.interviews / totals.contacts)*100).toFixed(1) : 0,
-                    offerFromInterviewRate: totals.interviews > 0 ? ((totals.interviews / totals.offers)*100).toFixed(1) : 0,
+                    // --- ⬇️ (수정) 버그 수정: (합격 / 면접) ⬇️ ---
+                    offerFromInterviewRate: totals.interviews > 0 ? ((totals.offers / totals.interviews)*100).toFixed(1) : 0,
+                    // --- ⬆️ (수정) ⬆️ ---
                     hireFromOfferRate: totals.offers > 0 ? ((totals.hires / totals.offers)*100).toFixed(1) : 0, 
                     overallRate: totals.applications > 0 ? ((totals.hires / totals.applications)*100).toFixed(1) : 0
                 };
@@ -93,7 +126,11 @@ const EfficiencyAnalysis = ({ jobs, applicants, siteSettings }) => {
             const positions = ['영업', '강사']; 
             return positions.map(pos => {
                 const posJobs = jobs.filter(j => j.position === pos); const jobIds = posJobs.map(j => j.id);
-                const posApplicants = applicants.filter(a => jobIds.includes(a.appliedJobId));
+                
+                // --- ⬇️ (수정) filteredApplicants 사용 ⬇️ ---
+                const posApplicants = filteredApplicants.filter(a => jobIds.includes(a.appliedJobId));
+                // --- ⬆️ (수정) ⬆️ ---
+                
                 const totals = { applications: 0, contacts: 0, interviews: 0, offers: 0, hires: 0 };
                 
                 posApplicants.forEach(a => { 
@@ -136,23 +173,38 @@ const EfficiencyAnalysis = ({ jobs, applicants, siteSettings }) => {
                 const rates = {
                     contactFromAppRate: totals.applications > 0 ? ((totals.contacts / totals.applications) * 100).toFixed(1) : 0,
                     interviewFromContactRate: totals.contacts > 0 ? ((totals.interviews / totals.contacts) * 100).toFixed(1) : 0,
-                    offerFromInterviewRate: totals.interviews > 0 ? ((totals.interviews / totals.offers) * 100).toFixed(1) : 0,
-                    hireFromOfferRate: totals.offers > 0 ? ((totals.hires / totals.offers) * 100).toFixed(1) : 0, overallRate: totals.applications > 0 ? ((totals.hires / totals.applications) * 100).toFixed(1) : 0
+                    // --- ⬇️ (수정) 버그 수정: (합격 / 면접) ⬇️ ---
+                    offerFromInterviewRate: totals.interviews > 0 ? ((totals.offers / totals.interviews) * 100).toFixed(1) : 0,
+                    // --- ⬆️ (수정) ⬆️ ---
+                    hireFromOfferRate: totals.offers > 0 ? ((totals.hires / totals.offers) * 100).toFixed(1) : 0, 
+                    overallRate: totals.applications > 0 ? ((totals.hires / totals.applications) * 100).toFixed(1) : 0
                 };
                 return { key: pos, name: pos, site: null, ...totals, ...rates, cost, costPerHire, efficiency };
             });
         }
-    }, [jobs, applicants, siteSettings, analysisType]);
+    // --- ⬇️ (수정) 종속성에 dateRange, dateRangeType 추가 ⬇️ ---
+    }, [jobs, applicants, siteSettings, analysisType, dateRange, dateRangeType]);
     // --- ⬆️ (수정) ⬆️ ---
 
-    // '사이트별 분석' 탭일 때의 ROI 데이터 (이전 로직 유지)
+    // '사이트별 분석' 탭일 때의 ROI 데이터
     const siteROIEData = useMemo(() => {
         if (analysisType !== 'site') return [];
+
+        // --- ⬇️ (추가) 날짜 필터링 ⬇️ ---
+        const filteredApplicants = applicants.filter(a => {
+            if (dateRangeType === 'all' || !dateRange.start) return true;
+            return a.appliedDate >= dateRange.start && a.appliedDate <= dateRange.end;
+        });
+        // --- ⬆️ (추가) ⬆️ ---
 
         const sites = ['사람인', '잡코리아', '인크루트'];
         return sites.map(site => {
             const siteJobs = jobs.filter(j => j.site === site); const jobIds = siteJobs.map(j => j.id); const settings = siteSettings.find(s => s.site === site);
-            const siteApplicants = applicants.filter(a => jobIds.includes(a.appliedJobId));
+            
+            // --- ⬇️ (수정) filteredApplicants 사용 ⬇️ ---
+            const siteApplicants = filteredApplicants.filter(a => jobIds.includes(a.appliedJobId));
+            // --- ⬆️ (수정) ⬆️ ---
+            
             const totals = { applications: 0, hires: 0 };
             siteApplicants.forEach(a => { 
                 totals.applications++; 
@@ -163,18 +215,18 @@ const EfficiencyAnalysis = ({ jobs, applicants, siteSettings }) => {
             
             return { key: site, name: site, ...totals, cost, costPerHire, overallRate, efficiency: parseFloat(overallRate) - (cost / 100000) };
         });
-    }, [jobs, applicants, siteSettings, analysisType]);
+    // --- ⬇️ (수정) 종속성에 dateRange, dateRangeType 추가 ⬇️ ---
+    }, [jobs, applicants, siteSettings, analysisType, dateRange, dateRangeType]);
+    // --- ⬆️ (수정) ⬆️ ---
 
 
     const sortedROIEData = [...siteROIEData].sort((a, b) => b.overallRate - a.overallRate);
 
-    // --- ⬇️ (수정) 배경색 정의 ⬇️ ---
     const siteBgColors = {
         '사람인': 'bg-blue-50',
         '잡코리아': 'bg-green-50',
         '인크루트': 'bg-yellow-50'
     };
-    // --- ⬆️ (수정) ⬆️ ---
 
     return (
         <div className="p-4 md:p-8">
@@ -185,17 +237,47 @@ const EfficiencyAnalysis = ({ jobs, applicants, siteSettings }) => {
                 <button onClick={() => setAnalysisType('position')} className={`btn-tab ${analysisType === 'position' ? 'btn-tab-active' : ''}`}>모집유형별 분석</button>
             </div>
 
+            {/* --- ⬇️ (추가) 날짜 필터 UI ⬇️ --- */}
+            <div className="bg-white rounded-xl shadow-lg p-4 mb-8">
+                <div className="flex flex-wrap items-start gap-x-6 gap-y-4">
+                    <div>
+                        <label className="label-style">기간</label>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+                                {['all', 'week', 'month', 'custom'].map(type => (
+                                    <button key={type} onClick={() => setDateRangeType(type)} className={`px-3 py-1 rounded-md text-sm font-medium ${dateRangeType === type ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:text-gray-800'}`}>
+                                        { {all: '전체', week: '1주', month: '1개월', custom: '기간'}[type] }
+                                    </button>
+                                ))}
+                            </div>
+                            {dateRangeType === 'custom' && (
+                                <div className="flex items-center space-x-2">
+                                    <Input type="date" value={customRange.start} onChange={(e) => setCustomRange(p => ({...p, start: e.target.value}))} className="px-3 py-1 text-sm" />
+                                    <span>~</span>
+                                    <Input type="date" value={customRange.end} onChange={(e) => setCustomRange(p => ({...p, end: e.target.value}))} className="px-3 py-1 text-sm" />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {/* --- ⬆️ (추가) ⬆️ --- */}
+
+
             <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-                <h3 className="text-xl font-semibold mb-6">단계별 전환율</h3>
+                <h3 className="text-xl font-semibold mb-6">
+                    단계별 전환율
+                    <span className="text-sm text-gray-500 ml-2">
+                         ({dateRangeType === 'all' ? '전체 기간' : `${dateRange.start} ~ ${dateRange.end}`})
+                    </span>
+                </h3>
                 <div className="space-y-6">
-                    {/* --- ⬇️ (수정) JSX 렌더링 수정 (배경색, 인원 수) ⬇️ --- */}
                     {analysisData.map(data => {
                         const bgColor = data.site ? (siteBgColors[data.site] || 'bg-gray-50') : 'bg-gray-50';
                         return (
                             <div key={data.key} className={`border-b last:border-b-0 p-4 rounded-lg ${bgColor}`}>
                                 <h4 className="font-semibold text-lg mb-3">
                                     {data.name}
-                                    {/* '모집유형별'일 때만 '강사' 텍스트 컬러 적용 (사이트-유형별일 땐 제외) */}
                                     {analysisType === 'position' && data.name === '강사' && <span className="text-blue-600"> (강사)</span>}
                                 </h4>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -223,15 +305,18 @@ const EfficiencyAnalysis = ({ jobs, applicants, siteSettings }) => {
                             </div>
                         );
                     })}
-                    {/* --- ⬆️ (수정) ⬆️ --- */}
                 </div>
             </div>
 
-            {/* --- ⬇️ (수정) '사이트별 분석'일 때만 하단 ROI 섹션 표시 ⬇️ --- */}
             {analysisType === 'site' && (
                 <>
                     <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-                        <h3 className="text-xl font-semibold mb-6">비용 대비 효과 (ROI) - 사이트 기준</h3>
+                        <h3 className="text-xl font-semibold mb-6">
+                            비용 대비 효과 (ROI) - 사이트 기준
+                            <span className="text-sm text-gray-500 ml-2">
+                                ({dateRangeType === 'all' ? '전체 기간' : `${dateRange.start} ~ ${dateRange.end}`})
+                            </span>
+                        </h3>
                         <div className="overflow-x-auto">
                             <table className="w-full">
                                 <thead className="bg-gray-50"><tr><th className="th-style">사이트</th><th className="th-style">월 이용료</th><th className="th-style">입사자</th><th className="th-style">1인당 비용</th><th className="th-style">효율성 점수</th></tr></thead>
@@ -248,7 +333,12 @@ const EfficiencyAnalysis = ({ jobs, applicants, siteSettings }) => {
                         </div>
                     </div>
                     <div className="bg-white rounded-xl shadow-lg p-6">
-                        <h3 className="text-xl font-semibold mb-6">사이트별 종합 순위 (ROI 기준)</h3>
+                        <h3 className="text-xl font-semibold mb-6">
+                            사이트별 종합 순위 (ROI 기준)
+                            <span className="text-sm text-gray-500 ml-2">
+                                ({dateRangeType === 'all' ? '전체 기간' : `${dateRange.start} ~ ${dateRange.end}`})
+                            </span>
+                        </h3>
                         <div className="space-y-4">
                             {sortedROIEData.map((data, index) => (
                                 <div key={data.key} className="flex flex-col md:flex-row items-start md:items-center space-y-2 md:space-y-0 md:space-x-4 p-4 bg-gray-50 rounded-lg">
@@ -261,7 +351,6 @@ const EfficiencyAnalysis = ({ jobs, applicants, siteSettings }) => {
                     </div>
                 </>
             )}
-            {/* --- ⬆️ (수정) ⬆️ --- */}
         </div>
     );
 };
