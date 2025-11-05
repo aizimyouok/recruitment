@@ -2,7 +2,8 @@
 // (React와 useMemo는 전역으로 로드됩니다)
 // 이 컴포넌트는 Dashboard.js에서 사용됩니다.
 
-const SiteSummary = ({ jobs, dailyRecords, applicants, filter }) => {
+// --- ⬇️ (수정) dateRange, dateRangeType props 추가 ⬇️ ---
+const SiteSummary = ({ jobs, dailyRecords, applicants, filter, dateRange, dateRangeType }) => {
     
     // 1. 분석할 조합 정의
     const sites = filter ? [filter] : ['사람인', '잡코리아', '인크루트'];
@@ -16,15 +17,30 @@ const SiteSummary = ({ jobs, dailyRecords, applicants, filter }) => {
 
     // 2. 각 조합별로 데이터 집계
     const summaryData = useMemo(() => {
+        
+        // --- ⬇️ (수정) 날짜 필터링 로직 추가 ⬇️ ---
+        const filteredRecords = dailyRecords.filter(r => {
+            if (dateRangeType === 'all' || !dateRange.start) return true;
+            return r.date >= dateRange.start && r.date <= dateRange.end;
+        });
+        
+        const filteredApplicants = applicants.filter(a => {
+            if (dateRangeType === 'all' || !dateRange.start) return true;
+            return a.appliedDate >= dateRange.start && a.appliedDate <= dateRange.end;
+        });
+        // --- ⬆️ (수정) ⬆️ ---
+
         return combinations.map(combo => {
             const { site, position } = combo;
 
             const siteJobs = jobs.filter(j => j.site === site && j.position === position);
             const jobIds = siteJobs.map(j => j.id);
 
-            const siteRecords = dailyRecords.filter(r => jobIds.includes(r.jobId));
+            // --- ⬇️ (수정) 필터링된 데이터 사용 ⬇️ ---
+            const siteRecords = filteredRecords.filter(r => jobIds.includes(r.jobId));
             const totalViews = siteRecords.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
-            const siteApplicants = applicants.filter(a => jobIds.includes(a.appliedJobId));
+            const siteApplicants = filteredApplicants.filter(a => jobIds.includes(a.appliedJobId));
+            // --- ⬆️ (수정) ⬆️ ---
             
             const totals = { 
                 jobs: siteJobs.length, 
@@ -89,20 +105,19 @@ const SiteSummary = ({ jobs, dailyRecords, applicants, filter }) => {
             });
 
             return { key: `${site}-${position}`, site, position, ...totals };
-        }).filter(data => data.jobs > 0); 
-    }, [jobs, dailyRecords, applicants, filter]);
+        }).filter(data => data.jobs > 0 || (filter && data.jobs === 0)); // filter가 활성화된 경우, 0개여도 표시
+    // --- ⬇️ (수정) useMemo 종속성에 dateRange와 dateRangeType 추가 ⬇️ ---
+    }, [jobs, dailyRecords, applicants, filter, dateRange, dateRangeType]);
+    // --- ⬆️ (수정) ⬆️ ---
 
-    // --- ⬇️ (수정) 사이트별 배경색 정의 ⬇️ ---
     const siteBgColors = {
         '사람인': 'bg-blue-50',
         '잡코리아': 'bg-green-50',
         '인크루트': 'bg-yellow-50'
     };
-    // --- ⬆️ (수정) ⬆️ ---
 
     return (
         <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4`}>
-            {/* --- ⬇️ (수정) 동적 배경색 적용 ⬇️ --- */}
             {summaryData.map(data => {
                 const bgColor = siteBgColors[data.site] || 'border-gray-200';
                 return (
@@ -132,7 +147,6 @@ const SiteSummary = ({ jobs, dailyRecords, applicants, filter }) => {
                     </div>
                 );
             })}
-             {/* --- ⬆️ (수정) ⬆️ --- */}
              {summaryData.length === 0 && (
                 <p className="text-gray-500 col-span-1 md:col-span-2 lg:col-span-3 text-center py-4">
                     {filter ? `(${filter}) 사이트의 '영업' 또는 '강사' 유형 공고가 없습니다.` : "데이터가 없습니다."}
