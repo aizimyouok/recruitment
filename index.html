@@ -25,7 +25,6 @@
         }
         /* ... (기존 스타일) ... */
         
-        /* --- ⬇️ (수정) 인쇄 스타일 수정 (한 페이지 최적화) ⬇️ --- */
         @media print {
             body * {
                 visibility: hidden;
@@ -68,7 +67,6 @@
             .report-print-area .p-4 { padding: 0.75rem !important; } /* 기존 p-4 축소 */
             .report-print-area .mb-8 { margin-bottom: 1rem !important; } /* 기존 mb-8 축소 */
         }
-        /* --- ⬆️ (수정) ⬆️ --- */
     </style>
 </head>
 <body class="bg-gray-50">
@@ -115,12 +113,8 @@
             }
         };
 
-        // --- ⬇️ (추가) 차트 플러그인 전역 등록 ⬇️ ---
-        // (참고: ChartDataLabels는 위에서 로드한 스크립트를 통해 접근 가능)
         Chart.register(ChartDataLabels);
-        // 기본적으로 모든 파이 차트에서 라벨 숨기기 (필요한 곳에서만 켜기)
         Chart.defaults.plugins.datalabels.display = false;
-        // --- ⬆️ (추가) ⬆️ ---
 
         // --- 메인 앱 ---
         const App = () => {
@@ -231,7 +225,6 @@
             // 4. 로딩 완료, 앱 렌더링
             return (
                 <div className="flex flex-col md:flex-row h-screen bg-gray-50 relative">
-                    {/* --- (수정) 인쇄 모드일 때 사이드바 숨기기 --- */}
                     <Sidebar
                         currentPage={currentPage}
                         setCurrentPage={setCurrentPage}
@@ -253,35 +246,37 @@
                             </button>
                         </div>
 
-                        {/* 페이지 라우팅 */}
-    <div style={{ display: currentPage === 'dashboard' ? 'block' : 'none' }}>
-        <Dashboard jobs={jobs} dailyRecords={dailyRecords} applicants={applicants} siteSettings={siteSettings} goals={goals} />
-    </div>
-    <div style={{ display: currentPage === 'jobs' ? 'block' : 'none' }}>
-        <JobManagement jobs={jobs} applicants={applicants} loadData={loadData} />
-    </div>
-    <div style={{ display: currentPage === 'applicants' ? 'block' : 'none' }}>
-        <ApplicantManagement applicants={applicants} jobs={jobs} loadData={loadData} />
-    </div>
-    <div style={{ display: currentPage === 'daily' ? 'block' : 'none' }}>
-        <DailyUpdate jobs={jobs} dailyRecords={dailyRecords} loadData={loadData} />
-    </div>
-    <div style={{ display: currentPage === 'compare' ? 'block' : 'none' }}>
-        <SiteComparison jobs={jobs} applicants={applicants} dailyRecords={dailyRecords} />
-    </div>
-    <div style={{ display: currentPage === 'efficiency' ? 'block' : 'none' }}>
-        <EfficiencyAnalysis jobs={jobs} applicants={applicants} siteSettings={siteSettings} />
-    </div>
-    <div style={{ display: currentPage === 'trends' ? 'block' : 'none' }}>
-        <TrendAnalysis jobs={jobs} dailyRecords={dailyRecords} applicants={applicants} />
-    </div>
-    <div style={{ display: currentPage === 'report' ? 'block' : 'none' }}>
-        <Report jobs={jobs} dailyRecords={dailyRecords} applicants={applicants} siteSettings={siteSettings} />
-    </div>
-    <div style={{ display: currentPage === 'settings' ? 'block' : 'none' }}>
-        <Settings siteSettings={siteSettings} goals={goals} loadData={loadData} />
-    </div>
-</div>
+                        {/* --- ⬇️ (수정) 페이지 라우팅: '&&' 대신 'style' 사용 ⬇️ --- */}
+                        <div style={{ display: currentPage === 'dashboard' ? 'block' : 'none' }}>
+                            <Dashboard jobs={jobs} dailyRecords={dailyRecords} applicants={applicants} siteSettings={siteSettings} goals={goals} />
+                        </div>
+                        <div style={{ display: currentPage === 'jobs' ? 'block' : 'none' }}>
+                            <JobManagement jobs={jobs} applicants={applicants} loadData={loadData} />
+                        </div>
+                        <div style={{ display: currentPage === 'applicants' ? 'block' : 'none' }}>
+                            <ApplicantManagement applicants={applicants} jobs={jobs} loadData={loadData} />
+                        </div>
+                        <div style={{ display: currentPage === 'daily' ? 'block' : 'none' }}>
+                            <DailyUpdate jobs={jobs} dailyRecords={dailyRecords} loadData={loadData} />
+                        </div>
+                        <div style={{ display: currentPage === 'compare' ? 'block' : 'none' }}>
+                            <SiteComparison jobs={jobs} applicants={applicants} dailyRecords={dailyRecords} />
+                        </div>
+                        <div style={{ display: currentPage === 'efficiency' ? 'block' : 'none' }}>
+                            <EfficiencyAnalysis jobs={jobs} applicants={applicants} siteSettings={siteSettings} />
+                        </div>
+                        <div style={{ display: currentPage === 'trends' ? 'block' : 'none' }}>
+                            <TrendAnalysis jobs={jobs} dailyRecords={dailyRecords} applicants={applicants} />
+                        </div>
+                        <div style={{ display: currentPage === 'report' ? 'block' : 'none' }}>
+                            <Report jobs={jobs} dailyRecords={dailyRecords} applicants={applicants} siteSettings={siteSettings} />
+                        </div>
+                        <div style={{ display: currentPage === 'settings' ? 'block' : 'none' }}>
+                            <Settings siteSettings={siteSettings} goals={goals} loadData={loadData} />
+                        </div>
+                        {/* --- ⬆️ (수정) ⬆️ --- */}
+                    </div>
+                </div>
             );
         };
 
@@ -290,4 +285,3 @@
     </script>
 </body>
 </html>
-
