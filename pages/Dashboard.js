@@ -24,9 +24,7 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
     });
     const [showSiteChart, setShowSiteChart] = useState(widgetSettings.siteChart);
     
-    // --- ⬇️ (추가) 인쇄 모드 상태 ⬇️ ---
     const [isPrintMode, setIsPrintMode] = useState(false);
-    // --- ⬆️ (추가) ⬆️ ---
 
 
     const handleSiteFilterChange = (siteKey) => {
@@ -257,18 +255,15 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
     const positionSummaryData = useMemo(() => {
         const positions = ['영업', '강사'];
         
-        // 날짜 필터링된 지원자/레코드 사용
         const { filteredRecords, filteredApplicants } = filteredData;
         
         return positions.map(pos => {
             const posJobs = jobs.filter(j => j.position === pos && selectedSites.includes(j.site));
             const jobIds = posJobs.map(j => j.id);
 
-            // 1. 조회수 계산
             const posRecords = filteredRecords.filter(r => jobIds.includes(r.jobId));
             const totalViews = posRecords.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
             
-            // 2. 지원자 현황 계산
             const posApplicants = filteredApplicants.filter(a => jobIds.includes(a.appliedJobId));
             
             const totals = { 
@@ -322,10 +317,9 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                         break;
                 }
             });
-            // 3. 'views' 추가
             return { position: pos, views: totalViews, ...totals };
-        // filteredData가 이미 모든 종속성을 가지므로, filteredData만 사용
-        }, [filteredData, jobs, selectedSites]);
+        });
+    }, [filteredData, jobs, selectedSites]); // (주석 제거)
 
     const demographicsData = useMemo(() => {
         const gender = { '남': 0, '여': 0, '미입력': 0 };
@@ -337,16 +331,14 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
             '46~50': 0, 
             '51~55': 0, 
             '56 이상': 0,
-            '미입력': 0
+            '미입력': 0 // (꼬리 콤마 제거)
         };
 
         filteredData.filteredApplicants.forEach(a => {
-            // 성별
             if (a.gender === '남') gender['남']++;
             else if (a.gender === '여') gender['여']++;
             else gender['미입력']++;
             
-            // 연령대
             const age = a.age;
             if (!age) { ageGroups['미입력']++; }
             else if (age < 20) { ageGroups['20 미만']++; }
@@ -366,11 +358,9 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
         '강사': 'bg-blue-50'
     };
 
-    // --- ⬇️ (수정) 인쇄 모드에 따라 클래스 동적 할당 ⬇️ ---
     return (
         <div className={`p-4 md:p-8 ${isPrintMode ? 'report-print-area' : ''}`}>
             
-            {/* --- ⬇️ (수정) 인쇄 모드용 헤더 ⬇️ --- */}
             {isPrintMode ? (
                 <div className="mb-8">
                     <div className="flex justify-between items-start mb-8">
@@ -393,7 +383,6 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                     </div>
                 </div>
             ) : (
-            // --- ⬇️ (수정) 일반 모드용 헤더 (인쇄 버튼 추가) ⬇️ ---
                 <div className="hidden md:flex justify-between items-start mb-8 no-print">
                      <div>
                         <h2 className="text-3xl font-bold text-gray-800">대시보드</h2>
@@ -413,14 +402,12 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                     </div>
                 </div>
             )}
-            {/* --- ⬆️ (수정) ⬆️ --- */}
 
 
             {showSettingsModal && (
                 <DashboardSettingsModal settings={widgetSettings} onSave={handleSaveWidgetSettings} onClose={() => setShowSettingsModal(false)} />
             )}
 
-            {/* --- ⬇️ (수정) 인쇄 모드일 때 필터 숨기기 ⬇️ --- */}
             {!isPrintMode && (
                 <div className="bg-white rounded-xl shadow-lg p-4 mb-8 no-print">
                     <div className="flex flex-wrap items-start gap-x-6 gap-y-4">
@@ -470,9 +457,7 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                     </div>
                 </div>
             )}
-            {/* --- ⬆️ (수정) ⬆️ --- */}
 
-            {/* --- ⬇️ (수정) 인쇄 모드일 때 KPI 카드 숨기기 ⬇️ --- */}
             {!isPrintMode && widgetSettings.kpi && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 no-print">
                     <KPICard title="진행중인 공고" value={stats.activeJobs} icon="briefcase" color="blue" />
@@ -487,9 +472,7 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                     />
                 </div>
             )}
-            {/* --- ⬆️ (수정) ⬆️ --- */}
 
-            {/* --- ⬇️ (수정) 인쇄 모드일 때 전환율 분석 숨기기 ⬇️ --- */}
             {!isPrintMode && widgetSettings.conversion && (
                 <div className="bg-white rounded-xl shadow-lg p-6 mb-8 no-print">
                     <h3 className="text-xl font-semibold mb-4">전환율 분석</h3>
@@ -509,10 +492,9 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                     </div>
                 </div>
             )}
-            {/* --- ⬆️ (수정) ⬆️ --- */}
 
 
-            {/* 1. 모집유형별 현황 (인쇄 모드일 때 'report-section' 클래스 추가) */}
+            {/* 1. 모집유형별 현황 */}
             <div className={`bg-white rounded-xl shadow-lg p-6 mb-8 ${isPrintMode ? 'report-section' : ''}`}>
                 <h3 className="text-xl font-semibold mb-4">모집유형별 현황</h3>
                 <p className="text-sm text-gray-500 -mt-2 mb-4">
@@ -549,12 +531,11 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                 </div>
             </div>
 
-            {/* 2. 사이트별 현황 (인쇄 모드일 때 'report-section' 클래스 추가) */}
+            {/* 2. 사이트별 현황 */}
             {widgetSettings.siteSummary && (
                  <div className={`bg-white rounded-xl shadow-lg p-6 mb-8 ${isPrintMode ? 'report-section' : ''}`}>
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="text-xl font-semibold">사이트별 현황</h3>
-                        {/* ⬇️ (수정) 인쇄 모드일 때 차트 토글 버튼 숨기기 ⬇️ */}
                         {widgetSettings.siteChart && !isPrintMode && (
                             <button onClick={() => setShowSiteChart(!showSiteChart)} className="text-sm text-blue-600 hover:text-blue-800 flex items-center no-print">
                                 <Icon name={showSiteChart ? 'chevron-up' : 'chevron-down'} size={16} className="mr-1" />
@@ -571,7 +552,6 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                         dateRangeType={dateRangeType}
                     />
 
-                    {/* ⬇️ (수정) 인쇄 모드일 때는 차트 숨기기 (요청에 차트 미포함) ⬇️ */}
                     {widgetSettings.siteChart && showSiteChart && !isPrintMode && (
                         <div className="mt-6 border-t pt-6 no-print">
                             <h4 className="text-lg font-semibold mb-4">사이트별 성과 비교 (전체 기간)</h4>
@@ -591,7 +571,7 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                 </div>
             )}
 
-            {/* 3. 지원자 통계 현황 (인쇄 모드일 때 'report-section' 클래스 추가) */}
+            {/* 3. 지원자 통계 현황 (신규) */}
             {widgetSettings.demographics && (
                 <div className={`bg-white rounded-xl shadow-lg p-6 mb-8 ${isPrintMode ? 'report-section' : ''}`}>
                     <h3 className="text-xl font-semibold mb-4">지원자 통계 현황</h3>
