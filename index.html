@@ -254,17 +254,34 @@
                         </div>
 
                         {/* 페이지 라우팅 */}
-                        {currentPage === 'dashboard' && <Dashboard jobs={jobs} dailyRecords={dailyRecords} applicants={applicants} siteSettings={siteSettings} goals={goals} />}
-                        {currentPage === 'jobs' && <JobManagement jobs={jobs} applicants={applicants} loadData={loadData} />}
-                        {currentPage === 'applicants' && <ApplicantManagement applicants={applicants} jobs={jobs} loadData={loadData} />}
-                        {currentPage === 'daily' && <DailyUpdate jobs={jobs} dailyRecords={dailyRecords} loadData={loadData} />}
-                        {currentPage === 'compare' && <SiteComparison jobs={jobs} applicants={applicants} dailyRecords={dailyRecords} />}
-                        {currentPage === 'efficiency' && <EfficiencyAnalysis jobs={jobs} applicants={applicants} siteSettings={siteSettings} />}
-                        {currentPage === 'trends' && <TrendAnalysis jobs={jobs} dailyRecords={dailyRecords} applicants={applicants} />}
-                        {currentPage === 'report' && <Report jobs={jobs} dailyRecords={dailyRecords} applicants={applicants} siteSettings={siteSettings} />}
-                        {currentPage === 'settings' && <Settings siteSettings={siteSettings} goals={goals} loadData={loadData} />}
-                    </div>
-                </div>
+    <div style={{ display: currentPage === 'dashboard' ? 'block' : 'none' }}>
+        <Dashboard jobs={jobs} dailyRecords={dailyRecords} applicants={applicants} siteSettings={siteSettings} goals={goals} />
+    </div>
+    <div style={{ display: currentPage === 'jobs' ? 'block' : 'none' }}>
+        <JobManagement jobs={jobs} applicants={applicants} loadData={loadData} />
+    </div>
+    <div style={{ display: currentPage === 'applicants' ? 'block' : 'none' }}>
+        <ApplicantManagement applicants={applicants} jobs={jobs} loadData={loadData} />
+    </div>
+    <div style={{ display: currentPage === 'daily' ? 'block' : 'none' }}>
+        <DailyUpdate jobs={jobs} dailyRecords={dailyRecords} loadData={loadData} />
+    </div>
+    <div style={{ display: currentPage === 'compare' ? 'block' : 'none' }}>
+        <SiteComparison jobs={jobs} applicants={applicants} dailyRecords={dailyRecords} />
+    </div>
+    <div style={{ display: currentPage === 'efficiency' ? 'block' : 'none' }}>
+        <EfficiencyAnalysis jobs={jobs} applicants={applicants} siteSettings={siteSettings} />
+    </div>
+    <div style={{ display: currentPage === 'trends' ? 'block' : 'none' }}>
+        <TrendAnalysis jobs={jobs} dailyRecords={dailyRecords} applicants={applicants} />
+    </div>
+    <div style={{ display: currentPage === 'report' ? 'block' : 'none' }}>
+        <Report jobs={jobs} dailyRecords={dailyRecords} applicants={applicants} siteSettings={siteSettings} />
+    </div>
+    <div style={{ display: currentPage === 'settings' ? 'block' : 'none' }}>
+        <Settings siteSettings={siteSettings} goals={goals} loadData={loadData} />
+    </div>
+</div>
             );
         };
 
@@ -273,3 +290,4 @@
     </script>
 </body>
 </html>
+
