@@ -1,6 +1,6 @@
 // --- 대시보드 ---
 const { useState, useMemo } = React;
-// Icon, ChartComponent, DashboardSettingsModal, KPICard, ConversionStep, SiteSummary, Input, Select 등
+// Icon, ChartComponent, DashboardSettingsModal, KPICard, ConversionStep, SiteSummary, Input, Select, Button 등
 // 필요한 컴포넌트들은 index.html에서 전역으로 로드됩니다.
 
 const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
@@ -18,13 +18,16 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
     });
 
     const [showSettingsModal, setShowSettingsModal] = useState(false);
-    // --- ⬇️ (수정) 'demographics' 위젯 설정 추가 ⬇️ ---
     const [widgetSettings, setWidgetSettings] = useState(() => {
         const saved = localStorage.getItem('dashboardWidgetSettings');
         return saved ? JSON.parse(saved) : { kpi: true, conversion: true, siteSummary: true, siteChart: true, demographics: true };
     });
-    // --- ⬆️ (수정) ⬆️ ---
     const [showSiteChart, setShowSiteChart] = useState(widgetSettings.siteChart);
+    
+    // --- ⬇️ (추가) 인쇄 모드 상태 ⬇️ ---
+    const [isPrintMode, setIsPrintMode] = useState(false);
+    // --- ⬆️ (추가) ⬆️ ---
+
 
     const handleSiteFilterChange = (siteKey) => {
         setSiteFilter(prev => ({ ...prev, [siteKey]: !prev[siteKey] }));
@@ -251,7 +254,6 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
         return { labels, datasets };
     }, [jobs, dailyRecords, applicants]);
     
-    // --- ⬇️ (수정) 'positionSummaryData' 로직 수정 ('조회수' 추가) ⬇️ ---
     const positionSummaryData = useMemo(() => {
         const positions = ['영업', '강사'];
         
@@ -322,12 +324,9 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
             });
             // 3. 'views' 추가
             return { position: pos, views: totalViews, ...totals };
-        });
-    // filteredData가 이미 모든 종속성을 가지므로, filteredData만 사용
-    }, [filteredData, jobs, selectedSites]);
-    // --- ⬆️ (수정) ⬆️ ---
+        // filteredData가 이미 모든 종속성을 가지므로, filteredData만 사용
+        }, [filteredData, jobs, selectedSites]);
 
-    // --- ⬇️ (추가) 'demographicsData' 로직 추가 ⬇️ ---
     const demographicsData = useMemo(() => {
         const gender = { '남': 0, '여': 0, '미입력': 0 };
         const ageGroups = { 
@@ -361,83 +360,121 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
         
         return { gender, ageGroups };
     }, [filteredData.filteredApplicants]);
-    // --- ⬆️ (추가) ⬆️ ---
 
     const positionBgColors = {
         '영업': 'bg-red-50',
         '강사': 'bg-blue-50'
     };
 
+    // --- ⬇️ (수정) 인쇄 모드에 따라 클래스 동적 할당 ⬇️ ---
     return (
-        <div className="p-4 md:p-8">
+        <div className={`p-4 md:p-8 ${isPrintMode ? 'report-print-area' : ''}`}>
+            
+            {/* --- ⬇️ (수정) 인쇄 모드용 헤더 ⬇️ --- */}
+            {isPrintMode ? (
+                <div className="mb-8">
+                    <div className="flex justify-between items-start mb-8">
+                        <div>
+                            <h2 className="text-3xl font-bold text-gray-800">대시보드 요약 리포트</h2>
+                            <p className="text-gray-600">
+                                {selectedSites.length === 3 ? '전체 사이트' : selectedSites.join(', ')}
+                                {selectedPositions.length === 2 ? ' | 전체 유형' : ` | ${selectedPositions.join(', ')}`}
+                                {dateRangeType !== 'all' ? ` | ${dateRange.start} ~ ${dateRange.end}` : ' | 전체 기간'}
+                            </p>
+                        </div>
+                        <div className="no-print flex space-x-2">
+                            <Button variant="primary" onClick={() => window.print()} className="flex items-center space-x-2">
+                                <Icon name="printer" size={18} /> <span>인쇄하기</span>
+                            </Button>
+                            <Button variant="secondary" onClick={() => setIsPrintMode(false)}>
+                                취소
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            ) : (
+            // --- ⬇️ (수정) 일반 모드용 헤더 (인쇄 버튼 추가) ⬇️ ---
+                <div className="hidden md:flex justify-between items-start mb-8 no-print">
+                     <div>
+                        <h2 className="text-3xl font-bold text-gray-800">대시보드</h2>
+                        <p className="text-gray-600">
+                            {selectedSites.length === 3 ? '전체 사이트' : selectedSites.join(', ')}
+                            {selectedPositions.length === 2 ? ' | 전체 유형' : ` | ${selectedPositions.join(', ')}`}
+                            {dateRangeType !== 'all' ? ` | ${dateRange.start} ~ ${dateRange.end}` : ' | 전체 기간'}
+                        </p>
+                     </div>
+                    <div className="flex space-x-2">
+                        <button onClick={() => setIsPrintMode(true)} className="text-gray-500 hover:text-gray-800 p-2 rounded-full hover:bg-gray-100" title="리포트 인쇄">
+                            <Icon name="printer" size={24} />
+                        </button>
+                        <button onClick={() => setShowSettingsModal(true)} className="text-gray-500 hover:text-gray-800 p-2 rounded-full hover:bg-gray-100" title="위젯 설정">
+                            <Icon name="settings" size={24} />
+                        </button>
+                    </div>
+                </div>
+            )}
+            {/* --- ⬆️ (수정) ⬆️ --- */}
+
+
             {showSettingsModal && (
                 <DashboardSettingsModal settings={widgetSettings} onSave={handleSaveWidgetSettings} onClose={() => setShowSettingsModal(false)} />
             )}
 
-            <div className="hidden md:flex justify-between items-start mb-8">
-                 <div>
-                    <h2 className="text-3xl font-bold text-gray-800">대시보드</h2>
-                    <p className="text-gray-600">
-                        {selectedSites.length === 3 ? '전체 사이트' : selectedSites.join(', ')}
-                        {selectedPositions.length === 2 ? ' | 전체 유형' : ` | ${selectedPositions.join(', ')}`}
-                        {dateRangeType !== 'all' ? ` | ${dateRange.start} ~ ${dateRange.end}` : ' | 전체 기간'}
-                    </p>
-                 </div>
-                <button onClick={() => setShowSettingsModal(true)} className="text-gray-500 hover:text-gray-800 p-2 rounded-full hover:bg-gray-100">
-                    <Icon name="settings" size={24} />
-                </button>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-lg p-4 mb-8">
-                <div className="flex flex-wrap items-start gap-x-6 gap-y-4">
-                    
-                    {/* 1. 기간 필터 그룹 */}
-                    <div>
-                        <label className="label-style">기간</label>
-                        <div className="flex flex-wrap items-center gap-2">
-                            <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
-                                {['all', 'week', 'month', 'custom'].map(type => (
-                                    <button key={type} onClick={() => setDateRangeType(type)} className={`px-3 py-1 rounded-md text-sm font-medium ${dateRangeType === type ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:text-gray-800'}`}>
-                                        { {all: '전체', week: '1주', month: '1개월', custom: '기간'}[type] }
-                                    </button>
-                                ))}
-                            </div>
-                            {dateRangeType === 'custom' && (
-                                <div className="flex items-center space-x-2">
-                                    <Input type="date" value={customRange.start} onChange={(e) => setCustomRange(p => ({...p, start: e.target.value}))} className="px-3 py-1 text-sm" />
-                                    <span>~</span>
-                                    <Input type="date" value={customRange.end} onChange={(e) => setCustomRange(p => ({...p, end: e.target.value}))} className="px-3 py-1 text-sm" />
+            {/* --- ⬇️ (수정) 인쇄 모드일 때 필터 숨기기 ⬇️ --- */}
+            {!isPrintMode && (
+                <div className="bg-white rounded-xl shadow-lg p-4 mb-8 no-print">
+                    <div className="flex flex-wrap items-start gap-x-6 gap-y-4">
+                        
+                        {/* 1. 기간 필터 그룹 */}
+                        <div>
+                            <label className="label-style">기간</label>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+                                    {['all', 'week', 'month', 'custom'].map(type => (
+                                        <button key={type} onClick={() => setDateRangeType(type)} className={`px-3 py-1 rounded-md text-sm font-medium ${dateRangeType === type ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:text-gray-800'}`}>
+                                            { {all: '전체', week: '1주', month: '1개월', custom: '기간'}[type] }
+                                        </button>
+                                    ))}
                                 </div>
-                            )}
+                                {dateRangeType === 'custom' && (
+                                    <div className="flex items-center space-x-2">
+                                        <Input type="date" value={customRange.start} onChange={(e) => setCustomRange(p => ({...p, start: e.target.value}))} className="px-3 py-1 text-sm" />
+                                        <span>~</span>
+                                        <Input type="date" value={customRange.end} onChange={(e) => setCustomRange(p => ({...p, end: e.target.value}))} className="px-3 py-1 text-sm" />
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    </div>
 
-                    {/* 2. 사이트 필터 그룹 */}
-                    <div>
-                        <label className="label-style">사이트</label>
-                        <div className="flex flex-wrap gap-x-4 gap-y-2 mt-2">
-                            <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={selectedSites.length === 3} onChange={handleSelectAllSites} /> <span><b>전체</b></span></label>
-                            <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={siteFilter['사람인']} onChange={() => handleSiteFilterChange('사람인')} /> <span>사람인</span></label>
-                            <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={siteFilter['잡코리아']} onChange={() => handleSiteFilterChange('잡코리아')} /> <span>잡코리아</span></label>
-                            <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={siteFilter['인크루트']} onChange={() => handleSiteFilterChange('인크루트')} /> <span>인크루트</span></label>
+                        {/* 2. 사이트 필터 그룹 */}
+                        <div>
+                            <label className="label-style">사이트</label>
+                            <div className="flex flex-wrap gap-x-4 gap-y-2 mt-2">
+                                <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={selectedSites.length === 3} onChange={handleSelectAllSites} /> <span><b>전체</b></span></label>
+                                <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={siteFilter['사람인']} onChange={() => handleSiteFilterChange('사람인')} /> <span>사람인</span></label>
+                                <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={siteFilter['잡코리아']} onChange={() => handleSiteFilterChange('잡코리아')} /> <span>잡코리아</span></label>
+                                <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={siteFilter['인크루트']} onChange={() => handleSiteFilterChange('인크루트')} /> <span>인크루트</span></label>
+                            </div>
                         </div>
-                    </div>
 
-                    {/* 3. 모집유형 필터 그룹 */}
-                    <div>
-                        <label className="label-style">모집유형</label>
-                        <div className="flex flex-wrap gap-x-4 gap-y-2 mt-2">
-                            <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={selectedPositions.length === 2} onChange={handleSelectAllPositions} /> <span><b>전체</b></span></label>
-                            <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={positionFilter['영업']} onChange={() => handlePositionFilterChange('영업')} /> <span>영업</span></label>
-                            <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={positionFilter['강사']} onChange={() => handlePositionFilterChange('강사')} /> <span>강사</span></label>
+                        {/* 3. 모집유형 필터 그룹 */}
+                        <div>
+                            <label className="label-style">모집유형</label>
+                            <div className="flex flex-wrap gap-x-4 gap-y-2 mt-2">
+                                <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={selectedPositions.length === 2} onChange={handleSelectAllPositions} /> <span><b>전체</b></span></label>
+                                <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={positionFilter['영업']} onChange={() => handlePositionFilterChange('영업')} /> <span>영업</span></label>
+                                <label className="flex items-center space-x-2"><input type="checkbox" className="h-4 w-4" checked={positionFilter['강사']} onChange={() => handlePositionFilterChange('강사')} /> <span>강사</span></label>
+                            </div>
                         </div>
-                    </div>
 
+                    </div>
                 </div>
-            </div>
+            )}
+            {/* --- ⬆️ (수정) ⬆️ --- */}
 
-            {widgetSettings.kpi && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {/* --- ⬇️ (수정) 인쇄 모드일 때 KPI 카드 숨기기 ⬇️ --- */}
+            {!isPrintMode && widgetSettings.kpi && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 no-print">
                     <KPICard title="진행중인 공고" value={stats.activeJobs} icon="briefcase" color="blue" />
                     <KPICard title="총 지원자" value={stats.applications} icon="users" color="green" />
                     <KPICard title="면접 예정 (컨택 중)" value={stats.contacting} icon="user-check" color="purple" />
@@ -450,9 +487,11 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                     />
                 </div>
             )}
+            {/* --- ⬆️ (수정) ⬆️ --- */}
 
-            {widgetSettings.conversion && (
-                <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+            {/* --- ⬇️ (수정) 인쇄 모드일 때 전환율 분석 숨기기 ⬇️ --- */}
+            {!isPrintMode && widgetSettings.conversion && (
+                <div className="bg-white rounded-xl shadow-lg p-6 mb-8 no-print">
                     <h3 className="text-xl font-semibold mb-4">전환율 분석</h3>
                     <div className="flex items-center justify-around flex-wrap gap-4">
                         <ConversionStep label="조회" value={stats.views} /> <Icon name="chevron-right" className="text-gray-400" />
@@ -470,11 +509,11 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                     </div>
                 </div>
             )}
+            {/* --- ⬆️ (수정) ⬆️ --- */}
 
-            {/* --- ⬇️ (수정) JSX 레이아웃 순서 변경 (모집유형 -> 사이트 -> 통계) ⬇️ --- */}
 
-            {/* 1. 모집유형별 현황 */}
-            <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+            {/* 1. 모집유형별 현황 (인쇄 모드일 때 'report-section' 클래스 추가) */}
+            <div className={`bg-white rounded-xl shadow-lg p-6 mb-8 ${isPrintMode ? 'report-section' : ''}`}>
                 <h3 className="text-xl font-semibold mb-4">모집유형별 현황</h3>
                 <p className="text-sm text-gray-500 -mt-2 mb-4">
                     (기준: {selectedSites.length === 3 ? '전체 사이트' : selectedSites.join(', ')} | {dateRangeType === 'all' ? '전체 기간' : `${dateRange.start} ~ ${dateRange.end}`})
@@ -485,7 +524,6 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                         return (
                             <div key={data.position} className={`border rounded-lg p-4 ${bgColor}`}>
                                 <h4 className="font-semibold text-lg mb-3">{data.position}</h4>
-                                {/* --- ⬇️ (수정) '조회수' 추가 및 grid-cols-3로 변경 ⬇️ --- */}
                                 <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
                                     <div className="stat-item flex-col items-start"><span className="stat-label">조회수</span><span className="font-semibold">{data.views}</span></div>
                                     <div className="stat-item flex-col items-start"><span className="stat-label">지원자</span><span className="font-semibold">{data.applications}</span></div>
@@ -505,20 +543,20 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                                     <div className="stat-item flex-col items-start"><span className="stat-label">제외</span><span className="font-semibold text-red-600">{data.exclude}</span></div>
                                 </div>
                                 <div className="flex justify-between items-center border-t pt-2 mt-2"><span className="text-gray-600 font-bold">입사:</span><span className="font-bold text-lg text-blue-600">{data.hires}명</span></div>
-                                {/* --- ⬆️ (수정) ⬆️ --- */}
                             </div>
                         );
                     })}
                 </div>
             </div>
 
-            {/* 2. 사이트별 현황 */}
+            {/* 2. 사이트별 현황 (인쇄 모드일 때 'report-section' 클래스 추가) */}
             {widgetSettings.siteSummary && (
-                 <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+                 <div className={`bg-white rounded-xl shadow-lg p-6 mb-8 ${isPrintMode ? 'report-section' : ''}`}>
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="text-xl font-semibold">사이트별 현황</h3>
-                        {widgetSettings.siteChart && (
-                            <button onClick={() => setShowSiteChart(!showSiteChart)} className="text-sm text-blue-600 hover:text-blue-800 flex items-center">
+                        {/* ⬇️ (수정) 인쇄 모드일 때 차트 토글 버튼 숨기기 ⬇️ */}
+                        {widgetSettings.siteChart && !isPrintMode && (
+                            <button onClick={() => setShowSiteChart(!showSiteChart)} className="text-sm text-blue-600 hover:text-blue-800 flex items-center no-print">
                                 <Icon name={showSiteChart ? 'chevron-up' : 'chevron-down'} size={16} className="mr-1" />
                                 차트 {showSiteChart ? '숨기기' : '보기'}
                             </button>
@@ -533,8 +571,9 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                         dateRangeType={dateRangeType}
                     />
 
-                    {widgetSettings.siteChart && showSiteChart && (
-                        <div className="mt-6 border-t pt-6">
+                    {/* ⬇️ (수정) 인쇄 모드일 때는 차트 숨기기 (요청에 차트 미포함) ⬇️ */}
+                    {widgetSettings.siteChart && showSiteChart && !isPrintMode && (
+                        <div className="mt-6 border-t pt-6 no-print">
                             <h4 className="text-lg font-semibold mb-4">사이트별 성과 비교 (전체 기간)</h4>
                              <div className="radar-chart-container">
                                 <ChartComponent
@@ -552,9 +591,9 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                 </div>
             )}
 
-            {/* 3. 지원자 통계 현황 (신규) */}
+            {/* 3. 지원자 통계 현황 (인쇄 모드일 때 'report-section' 클래스 추가) */}
             {widgetSettings.demographics && (
-                <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+                <div className={`bg-white rounded-xl shadow-lg p-6 mb-8 ${isPrintMode ? 'report-section' : ''}`}>
                     <h3 className="text-xl font-semibold mb-4">지원자 통계 현황</h3>
                     <p className="text-sm text-gray-500 -mt-2 mb-4">
                         (기준: {selectedSites.length === 3 ? '전체 사이트' : selectedSites.join(', ')} | {selectedPositions.length === 2 ? '전체 유형' : selectedPositions.join(', ')} | {dateRangeType === 'all' ? '전체 기간' : `${dateRange.start} ~ ${dateRange.end}`})
@@ -581,7 +620,6 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                     </div>
                 </div>
             )}
-            {/* --- ⬆️ (수정) ⬆️ --- */}
 
         </div>
     );
