@@ -18,10 +18,12 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
     });
 
     const [showSettingsModal, setShowSettingsModal] = useState(false);
+    // --- ⬇️ (수정) 'demographics' 위젯 설정 추가 ⬇️ ---
     const [widgetSettings, setWidgetSettings] = useState(() => {
         const saved = localStorage.getItem('dashboardWidgetSettings');
-        return saved ? JSON.parse(saved) : { kpi: true, conversion: true, siteSummary: true, siteChart: true };
+        return saved ? JSON.parse(saved) : { kpi: true, conversion: true, siteSummary: true, siteChart: true, demographics: true };
     });
+    // --- ⬆️ (수정) ⬆️ ---
     const [showSiteChart, setShowSiteChart] = useState(widgetSettings.siteChart);
 
     const handleSiteFilterChange = (siteKey) => {
@@ -249,22 +251,28 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
         return { labels, datasets };
     }, [jobs, dailyRecords, applicants]);
     
+    // --- ⬇️ (수정) 'positionSummaryData' 로직 수정 ('조회수' 추가) ⬇️ ---
     const positionSummaryData = useMemo(() => {
         const positions = ['영업', '강사'];
         
-        const dateFilteredApplicants = applicants.filter(a => {
-             if (dateRange.start && dateRange.end && dateRangeType !== 'all') {
-                return a.appliedDate >= dateRange.start && a.appliedDate <= dateRange.end;
-            }
-            return true;
-        });
+        // 날짜 필터링된 지원자/레코드 사용
+        const { filteredRecords, filteredApplicants } = filteredData;
         
         return positions.map(pos => {
             const posJobs = jobs.filter(j => j.position === pos && selectedSites.includes(j.site));
             const jobIds = posJobs.map(j => j.id);
-            const posApplicants = dateFilteredApplicants.filter(a => jobIds.includes(a.appliedJobId));
+
+            // 1. 조회수 계산
+            const posRecords = filteredRecords.filter(r => jobIds.includes(r.jobId));
+            const totalViews = posRecords.reduce((sum, r) => sum + (r.viewsIncrease || 0), 0);
             
-            const totals = { applications: 0, duplicates: 0, reject: 0, cancel: 0, contacts: 0, interviews: 0, offers: 0, fails: 0, hires: 0, exclude: 0 };
+            // 2. 지원자 현황 계산
+            const posApplicants = filteredApplicants.filter(a => jobIds.includes(a.appliedJobId));
+            
+            const totals = { 
+                applications: 0, duplicates: 0, reject: 0, cancel: 0, 
+                contacts: 0, interviews: 0, offers: 0, fails: 0, hires: 0, exclude: 0 
+            };
             
             posApplicants.forEach(a => {
                 totals.applications++;
@@ -312,9 +320,48 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                         break;
                 }
             });
-            return { position: pos, ...totals };
+            // 3. 'views' 추가
+            return { position: pos, views: totalViews, ...totals };
         });
-    }, [jobs, applicants, dateRange, dateRangeType, siteFilter, selectedSites]);
+    // filteredData가 이미 모든 종속성을 가지므로, filteredData만 사용
+    }, [filteredData, jobs, selectedSites]);
+    // --- ⬆️ (수정) ⬆️ ---
+
+    // --- ⬇️ (추가) 'demographicsData' 로직 추가 ⬇️ ---
+    const demographicsData = useMemo(() => {
+        const gender = { '남': 0, '여': 0, '미입력': 0 };
+        const ageGroups = { 
+            '20 미만': 0, 
+            '20~29': 0, 
+            '30~39': 0, 
+            '40~45': 0, 
+            '46~50': 0, 
+            '51~55': 0, 
+            '56 이상': 0,
+            '미입력': 0
+        };
+
+        filteredData.filteredApplicants.forEach(a => {
+            // 성별
+            if (a.gender === '남') gender['남']++;
+            else if (a.gender === '여') gender['여']++;
+            else gender['미입력']++;
+            
+            // 연령대
+            const age = a.age;
+            if (!age) { ageGroups['미입력']++; }
+            else if (age < 20) { ageGroups['20 미만']++; }
+            else if (age <= 29) { ageGroups['20~29']++; }
+            else if (age <= 39) { ageGroups['30~39']++; }
+            else if (age <= 45) { ageGroups['40~45']++; }
+            else if (age <= 50) { ageGroups['46~50']++; }
+            else if (age <= 55) { ageGroups['51~55']++; }
+            else { ageGroups['56 이상']++; }
+        });
+        
+        return { gender, ageGroups };
+    }, [filteredData.filteredApplicants]);
+    // --- ⬆️ (추가) ⬆️ ---
 
     const positionBgColors = {
         '영업': 'bg-red-50',
@@ -424,6 +471,48 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                 </div>
             )}
 
+            {/* --- ⬇️ (수정) JSX 레이아웃 순서 변경 (모집유형 -> 사이트 -> 통계) ⬇️ --- */}
+
+            {/* 1. 모집유형별 현황 */}
+            <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+                <h3 className="text-xl font-semibold mb-4">모집유형별 현황</h3>
+                <p className="text-sm text-gray-500 -mt-2 mb-4">
+                    (기준: {selectedSites.length === 3 ? '전체 사이트' : selectedSites.join(', ')} | {dateRangeType === 'all' ? '전체 기간' : `${dateRange.start} ~ ${dateRange.end}`})
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {positionSummaryData.map(data => {
+                        const bgColor = positionBgColors[data.position] || 'border-gray-200';
+                        return (
+                            <div key={data.position} className={`border rounded-lg p-4 ${bgColor}`}>
+                                <h4 className="font-semibold text-lg mb-3">{data.position}</h4>
+                                {/* --- ⬇️ (수정) '조회수' 추가 및 grid-cols-3로 변경 ⬇️ --- */}
+                                <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
+                                    <div className="stat-item flex-col items-start"><span className="stat-label">조회수</span><span className="font-semibold">{data.views}</span></div>
+                                    <div className="stat-item flex-col items-start"><span className="stat-label">지원자</span><span className="font-semibold">{data.applications}</span></div>
+                                    <div className="stat-item flex-col items-start"><span className="stat-label">중복</span><span className="font-semibold text-red-600">{data.duplicates}</span></div>
+                                    
+                                    <div className="stat-item flex-col items-start"><span className="stat-label">컨택</span><span className="font-semibold">{data.contacts}</span></div>
+                                    <div className="stat-item flex-col items-start"><span className="stat-label">면접</span><span className="font-semibold">{data.interviews}</span></div>
+                                    <div className="stat-item flex-col items-start">
+                                        <span className="stat-label">합격/불합격</span>
+                                        <span className="font-semibold">
+                                            <span className="text-green-600">{data.offers}</span> / <span className="text-red-600">{data.fails}</span>
+                                        </span>
+                                    </div>
+
+                                    <div className="stat-item flex-col items-start"><span className="stat-label">거절</span><span className="font-semibold text-red-600">{data.reject}</span></div>
+                                    <div className="stat-item flex-col items-start"><span className="stat-label">취소</span><span className="font-semibold text-red-600">{data.cancel}</span></div>
+                                    <div className="stat-item flex-col items-start"><span className="stat-label">제외</span><span className="font-semibold text-red-600">{data.exclude}</span></div>
+                                </div>
+                                <div className="flex justify-between items-center border-t pt-2 mt-2"><span className="text-gray-600 font-bold">입사:</span><span className="font-bold text-lg text-blue-600">{data.hires}명</span></div>
+                                {/* --- ⬆️ (수정) ⬆️ --- */}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* 2. 사이트별 현황 */}
             {widgetSettings.siteSummary && (
                  <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
                     <div className="flex justify-between items-center mb-4">
@@ -435,7 +524,6 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                             </button>
                         )}
                     </div>
-                    {/* --- ⬇️ (수정) dateRange와 dateRangeType props 전달 ⬇️ --- */}
                     <SiteSummary 
                         jobs={jobs} 
                         dailyRecords={dailyRecords} 
@@ -444,7 +532,6 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                         dateRange={dateRange}
                         dateRangeType={dateRangeType}
                     />
-                    {/* --- ⬆️ (수정) ⬆️ --- */}
 
                     {widgetSettings.siteChart && showSiteChart && (
                         <div className="mt-6 border-t pt-6">
@@ -465,42 +552,36 @@ const Dashboard = ({ jobs, dailyRecords, applicants, siteSettings, goals }) => {
                 </div>
             )}
 
-            <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-                <h3 className="text-xl font-semibold mb-4">모집유형별 현황</h3>
-                <p className="text-sm text-gray-500 -mt-2 mb-4">
-                    (기준: {selectedSites.length === 3 ? '전체 사이트' : selectedSites.join(', ')} | {dateRangeType === 'all' ? '전체 기간' : `${dateRange.start} ~ ${dateRange.end}`})
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {positionSummaryData.map(data => {
-                        const bgColor = positionBgColors[data.position] || 'border-gray-200';
-                        return (
-                            <div key={data.position} className={`border rounded-lg p-4 ${bgColor}`}>
-                                <h4 className="font-semibold text-lg mb-3">{data.position}</h4>
-                                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                                    <div className="stat-item"><span className="stat-label">지원자:</span><span className="font-semibold">{data.applications}</span></div>
-                                    <div className="stat-item"><span className="stat-label">중복:</span><span className="font-semibold text-red-600">{data.duplicates}</span></div>
-                                    <div className="stat-item">
-                                        <span className="stat-label">거절/취소:</span>
-                                        <span className="font-semibold">
-                                            <span className="text-red-600">{data.reject}</span> / <span className="text-red-600">{data.cancel}</span>
-                                        </span>
-                                    </div>
-                                    <div className="stat-item"><span className="stat-label">컨택:</span><span className="font-semibold">{data.contacts}</span></div>
-                                    <div className="stat-item"><span className="stat-label">면접:</span><span className="font-semibold">{data.interviews}</span></div>
-                                    <div className="stat-item">
-                                        <span className="stat-label">합격/불합격:</span>
-                                        <span className="font-semibold">
-                                            <span className="text-green-600">{data.offers}</span> / <span className="text-red-600">{data.fails}</span>
-                                        </span>
-                                    </div>
-                                    <div className="stat-item"><span className="stat-label">제외:</span><span className="font-semibold text-red-600">{data.exclude}</span></div>
-                                    <div className="flex justify-between col-span-2 border-t pt-2 mt-1"><span className="text-gray-600 font-bold">입사:</span><span className="font-bold text-lg text-blue-600">{data.hires}명</span></div>
-                                </div>
+            {/* 3. 지원자 통계 현황 (신규) */}
+            {widgetSettings.demographics && (
+                <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+                    <h3 className="text-xl font-semibold mb-4">지원자 통계 현황</h3>
+                    <p className="text-sm text-gray-500 -mt-2 mb-4">
+                        (기준: {selectedSites.length === 3 ? '전체 사이트' : selectedSites.join(', ')} | {selectedPositions.length === 2 ? '전체 유형' : selectedPositions.join(', ')} | {dateRangeType === 'all' ? '전체 기간' : `${dateRange.start} ~ ${dateRange.end}`})
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* 성별 분포 */}
+                        <div>
+                            <h4 className="text-lg font-semibold mb-3">성별 분포</h4>
+                            <div className="space-y-2">
+                                {Object.entries(demographicsData.gender).filter(([key, value]) => value > 0).map(([key, value]) => (
+                                    <div key={key} className="flex justify-between p-3 bg-gray-50 rounded"><span>{key}</span><span className="font-bold">{value}명</span></div>
+                                ))}
                             </div>
-                        );
-                    })}
+                        </div>
+                        {/* 연령대 분포 */}
+                        <div>
+                            <h4 className="text-lg font-semibold mb-3">연령대 분포</h4>
+                            <div className="space-y-2">
+                                {Object.entries(demographicsData.ageGroups).filter(([key, value]) => value > 0).map(([key, value]) => (
+                                    <div key={key} className="flex justify-between p-3 bg-gray-50 rounded"><span>{key}</span><span className="font-bold">{value}명</span></div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
+            )}
+            {/* --- ⬆️ (수정) ⬆️ --- */}
 
         </div>
     );
